@@ -1,0 +1,2548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IC-95 · Instrumento de Intervalos de Confianza</title>
+<style>
+  :root{
+    --casing-dark:#1b2430;
+    --casing-darker:#11161d;
+    --casing-line:#2c3a4d;
+    --panel-cream:#efe8d8;
+    --panel-cream-2:#e8e0cc;
+    --panel-line:#d2c7ab;
+    --ink:#242b22;
+    --ink-soft:#5b6357;
+    --copper:#a8672b;
+    --copper-light:#c98a4e;
+    --verdigris:#5e8073;
+    --verdigris-soft:#5e807340;
+    --danger:#9c4a3c;
+    --danger-soft:#9c4a3c33;
+    --lcd-bg:#1c2b22;
+    --lcd-fg:#8fd9a8;
+    --font-serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(ellipse at top, #232d3d 0%, #0d1117 75%);
+    min-height:100vh;
+    padding:28px 16px 60px;
+    font-family:var(--font-sans);
+    color:var(--ink);
+    display:flex;
+    justify-content:center;
+  }
+
+  .instrument{
+    width:100%;
+    max-width:1180px;
+    background:linear-gradient(155deg, var(--casing-dark), var(--casing-darker));
+    border-radius:16px;
+    padding:22px;
+    box-shadow: 0 30px 70px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.05);
+    animation: rise .6s ease-out;
+  }
+  @keyframes rise{ from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:translateY(0);} }
+  @media (prefers-reduced-motion: reduce){ .instrument{animation:none;} }
+
+  .rivet{
+    position:absolute; width:8px; height:8px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #566578, #232c37);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.6);
+  }
+
+  .nameplate{
+    display:flex; align-items:baseline; justify-content:space-between;
+    padding:2px 10px 16px;
+    color:#c7cfdb;
+  }
+  .nameplate .model{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.04em;
+    color:var(--copper-light);
+    border:1px solid #3a4a60;
+    border-radius:4px;
+    padding:2px 7px;
+  }
+  .nameplate h1{
+    font-family:var(--font-serif);
+    font-weight:600;
+    font-size:22px;
+    margin:0;
+    color:#e9ecf1;
+    letter-spacing:.01em;
+  }
+  .nameplate .sub{
+    font-size:12.5px;
+    color:#8b96a8;
+    margin-top:2px;
+    font-family:var(--font-serif);
+    font-style:italic;
+  }
+
+  .faceplate{
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(160,145,110,.14) 28px),
+      repeating-linear-gradient(90deg, transparent, transparent 27px, rgba(160,145,110,.14) 28px),
+      linear-gradient(175deg, var(--panel-cream), var(--panel-cream-2));
+    border-radius:10px;
+    border:1px solid #c9bd9d;
+    padding:22px;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.12), inset 0 -1px 0 rgba(255,255,255,.4);
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns: 320px 1fr;
+    gap:22px;
+  }
+  @media (max-width: 860px){ .grid{grid-template-columns: 1fr;} }
+
+  .section-title{
+    font-family:var(--font-serif);
+    font-size:14.5px;
+    color:var(--ink);
+    margin:0 0 10px;
+    padding-bottom:6px;
+    border-bottom:1px solid var(--panel-line);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .section-title .dot{width:7px;height:7px;border-radius:50%;background:var(--copper);}
+
+  .control-block{ margin-bottom:22px; }
+  label.field-label{
+    display:block;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+
+  /* segmented switch */
+  .segmented{
+    display:flex;
+    background:#e2d8bc;
+    border-radius:8px;
+    padding:3px;
+    border:1px solid var(--panel-line);
+    gap:3px;
+  }
+  .segmented button{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:8px 6px;
+    font-size:12.3px;
+    font-family:var(--font-sans);
+    color:var(--ink-soft);
+    border-radius:6px;
+    cursor:pointer;
+    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+  }
+  .segmented button.active{
+    background:linear-gradient(180deg, #b57838, var(--copper));
+    color:#fff8ef;
+    box-shadow: 0 2px 5px rgba(0,0,0,.25);
+  }
+  .segmented.small button{padding:6px 4px; font-size:11.5px;}
+
+  input[type="text"], input[type="number"], textarea{
+    width:100%;
+    font-family:var(--font-mono);
+    font-size:13.5px;
+    padding:9px 10px;
+    border-radius:6px;
+    border:1px solid var(--panel-line);
+    background:#fbf8f0;
+    color:var(--ink);
+  }
+  textarea{ resize:vertical; min-height:76px; line-height:1.5; }
+  input:focus, textarea:focus{
+    outline:2px solid var(--verdigris);
+    outline-offset:1px;
+  }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  /* confidence dial */
+  .dial-readout{
+    font-family:var(--font-mono);
+    background:var(--lcd-bg);
+    color:var(--lcd-fg);
+    border-radius:6px;
+    padding:6px 10px;
+    font-size:20px;
+    text-align:center;
+    letter-spacing:.03em;
+    margin-bottom:10px;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.5);
+  }
+  input[type="range"]{
+    width:100%;
+    accent-color: var(--copper);
+    margin:6px 0 10px;
+  }
+  .presets{ display:flex; gap:6px; }
+  .presets button{
+    flex:1;
+    padding:6px 4px;
+    font-size:11.5px;
+    border-radius:5px;
+    border:1px solid var(--panel-line);
+    background:#e6ddc4;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .presets button:hover{ background:#dccfa9; }
+
+  .hint{ font-size:11.3px; color:var(--ink-soft); margin-top:6px; line-height:1.4; }
+
+  .toggle-mode{
+    display:flex; gap:6px; margin-bottom:10px;
+  }
+  .toggle-mode button{
+    font-size:11.5px;
+    padding:5px 9px;
+    border-radius:14px;
+    border:1px solid var(--panel-line);
+    background:#e6ddc4;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .toggle-mode button.active{
+    background:var(--verdigris);
+    color:#fff;
+    border-color:var(--verdigris);
+  }
+
+  /* right side */
+  .tabbar{
+    display:flex;
+    gap:4px;
+    margin-bottom:16px;
+    border-bottom:1px solid var(--panel-line);
+  }
+  .tabbar button{
+    background:transparent;
+    border:none;
+    padding:9px 14px;
+    font-family:var(--font-serif);
+    font-size:13.5px;
+    color:var(--ink-soft);
+    cursor:pointer;
+    border-bottom:2px solid transparent;
+    margin-bottom:-1px;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .tabbar button.active{ color:var(--ink); border-bottom-color:var(--copper); }
+  .tabbar button:hover{ color:var(--ink); }
+
+  .display-area{
+    background:#fbf9f2;
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:16px 16px 8px;
+    margin-bottom:16px;
+  }
+  svg#chart{ width:100%; height:auto; display:block; }
+
+  .lcd-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap:10px;
+    margin-bottom:16px;
+  }
+  @media (max-width:600px){ .lcd-grid{grid-template-columns:repeat(2,1fr);} }
+  .lcd-cell{
+    background:var(--lcd-bg);
+    border-radius:6px;
+    padding:10px 12px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.55);
+  }
+  .lcd-cell .k{
+    font-size:10.7px;
+    color:#7fa88f;
+    font-family:var(--font-sans);
+    margin-bottom:3px;
+  }
+  .lcd-cell .v{
+    font-family:var(--font-mono);
+    font-size:17px;
+    color:var(--lcd-fg);
+    letter-spacing:.02em;
+  }
+  .lcd-cell.wide{ grid-column: span 3; }
+  @media (max-width:600px){ .lcd-cell.wide{ grid-column: span 2; } }
+  .lcd-cell.wide .v{ font-size:20px; }
+
+  .ci-band{
+    display:flex; align-items:center; gap:10px; font-family:var(--font-mono);
+  }
+  .ci-band .bracket{ color:var(--copper-light); font-size:22px; }
+
+  .steps{
+    background:#fbf9f2;
+    border:1px solid var(--panel-line);
+    border-radius:10px;
+    padding:6px 16px 14px;
+  }
+  .steps summary{
+    cursor:pointer;
+    padding:10px 0;
+    font-family:var(--font-serif);
+    font-size:14px;
+    color:var(--ink);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .steps summary::marker{ color:var(--copper); }
+  .step-line{
+    font-size:13.3px;
+    line-height:2;
+    color:var(--ink);
+    padding:3px 0;
+    border-bottom:1px dashed #e0d6b8;
+  }
+  .step-line:last-child{ border-bottom:none; }
+  .frac{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    vertical-align:middle;
+    margin:0 4px;
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    line-height:1.15;
+  }
+  .frac .num{ padding:0 2px; }
+  .frac .den{ padding:0 2px; border-top:1px solid var(--ink); }
+  code.mono{ font-family:var(--font-mono); background:#efe6cd; padding:1px 5px; border-radius:3px; }
+
+  .actions{
+    display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;
+  }
+  .btn{
+    font-family:var(--font-sans);
+    font-size:13px;
+    padding:9px 16px;
+    border-radius:7px;
+    border:1px solid #3a4a60;
+    cursor:pointer;
+    transition: transform .1s ease, box-shadow .15s ease;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn.primary{
+    background:linear-gradient(180deg, var(--copper-light), var(--copper));
+    color:#fff8ef;
+    border:none;
+    box-shadow:0 3px 8px rgba(0,0,0,.25);
+  }
+  .btn.ghost{
+    background:transparent;
+    border:1px solid var(--panel-line);
+    color:var(--ink-soft);
+  }
+  .btn.ghost:hover{ background:#efe6cd; }
+
+  .footnote{
+    font-size:11.3px;
+    color:#8b96a8;
+    text-align:center;
+    margin-top:14px;
+    font-family:var(--font-serif);
+    font-style:italic;
+  }
+
+  .credits{
+    text-align:center;
+    margin-top:10px;
+    padding-top:12px;
+    border-top:1px solid var(--casing-line);
+    font-family:var(--font-mono);
+  }
+  .credits .role{
+    display:block;
+    font-size:16px;
+    font-weight:700;
+    letter-spacing:.05em;
+    color:var(--copper-light);
+    margin:4px 0;
+  }
+  .credits .sep{ display:none; }
+
+  .method-note{
+    font-size:12px;
+    color:var(--ink-soft);
+    background:#f2ecd9;
+    border-left:3px solid var(--verdigris);
+    padding:8px 10px;
+    border-radius:0 6px 6px 0;
+    margin-top:10px;
+  }
+
+  @media print{
+    body{ background:#fff; padding:0; }
+    .instrument{ box-shadow:none; background:#fff; padding:0; }
+    .faceplate{ box-shadow:none; border:none; background:#fff; }
+    .nameplate{ color:#111; }
+    .controls-col .field-label, .segmented, .dial-readout, input, textarea, .presets, .toggle-mode, .actions{ display:none !important; }
+    .controls-col{ display:none !important; }
+    .grid{ grid-template-columns: 1fr; }
+    .steps[open] summary ~ *{ display:block; }
+    .steps summary{ display:none; }
+  }
+
+  /* ===== EXTENSIÓN v1.1 (solo añadidos) ===== */
+  .tabbar{ flex-wrap:wrap; }
+  table.xt{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12px; margin-bottom:14px; }
+  table.xt th{ background:#e2d8bc; color:var(--ink); padding:6px 8px; text-align:right; font-weight:600; border-bottom:1px solid var(--panel-line); }
+  table.xt td{ padding:5px 8px; text-align:right; border-bottom:1px dashed #e0d6b8; background:#fbf9f2; }
+  table.xt th:first-child, table.xt td:first-child{ text-align:left; }
+  table.xt tr.sel td{ background:#f1e3c8; font-weight:700; }
+  .xnote{ font-size:12.5px; line-height:1.55; background:#f2ecd9; border-left:3px solid var(--copper); padding:9px 12px; border-radius:0 6px 6px 0; margin:0 0 14px; }
+  .xwarn{ border-left-color:var(--danger); }
+  select.xs{ width:100%; padding:8px; border-radius:6px; border:1px solid var(--panel-line); font-size:13px; margin-bottom:10px; }
+  .xrow{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:10px; }
+  .xsec{ margin-top:6px; }
+</style>
+</head>
+<body>
+
+<div class="instrument">
+  <div class="nameplate">
+    <div>
+      <h1>Instrumento de Intervalos de Confianza</h1>
+      <div class="sub">medición estadística de precisión — sin tablas, sin redondeos</div>
+    </div>
+    <div class="model">MOD. IC&nbsp;·&nbsp;95</div>
+  </div>
+
+  <div class="faceplate">
+    <div class="grid">
+
+      <!-- CONTROLS -->
+      <div class="controls-col">
+
+        <div class="control-block">
+          <div class="section-title"><span class="dot"></span>Tipo de estimación</div>
+          <div class="segmented" id="modeSwitch">
+            <button data-mode="zmean" class="active">Media, σ conocida</button>
+            <button data-mode="tmean">Media, σ desconocida</button>
+            <button data-mode="prop">Proporción</button>
+          </div>
+        </div>
+
+        <div class="control-block" id="dataBlock">
+          <div class="section-title"><span class="dot"></span>Datos de la muestra</div>
+
+          <div id="meanInputArea">
+            <div class="toggle-mode" id="entrySwitch">
+              <button data-entry="raw" class="active">Datos en bruto</button>
+              <button data-entry="summary">Resumen (n, x̄, s)</button>
+            </div>
+
+            <div id="rawEntry">
+              <label class="field-label">Observaciones (separadas por coma, espacio o salto de línea)</label>
+              <textarea id="rawData" placeholder="ej: 12.4, 11.9, 13.1, 12.0, 12.8, 13.5, 11.7">12.4, 11.9, 13.1, 12.0, 12.8, 13.5, 11.7, 12.6, 13.0, 12.2</textarea>
+            </div>
+
+            <div id="summaryEntry" style="display:none;">
+              <div class="two-col">
+                <div>
+                  <label class="field-label">Tamaño de muestra (n)</label>
+                  <input type="number" id="sumN" value="10" min="2">
+                </div>
+                <div>
+                  <label class="field-label">Media (x̄)</label>
+                  <input type="number" id="sumMean" value="12.56" step="any">
+                </div>
+              </div>
+              <div style="margin-top:10px;" id="sumSdBlock">
+                <label class="field-label">Desviación estándar muestral (s)</label>
+                <input type="number" id="sumSd" value="0.58" step="any" min="0">
+              </div>
+            </div>
+
+            <div id="sigmaBlock" style="margin-top:10px;">
+              <label class="field-label">Desviación estándar poblacional conocida (σ)</label>
+              <input type="number" id="sigmaVal" value="0.6" step="any" min="0">
+            </div>
+          </div>
+
+          <div id="propInputArea" style="display:none;">
+            <div class="two-col">
+              <div>
+                <label class="field-label">Aciertos / éxitos (x)</label>
+                <input type="number" id="propX" value="184" min="0">
+              </div>
+              <div>
+                <label class="field-label">Tamaño de muestra (n)</label>
+                <input type="number" id="propN" value="250" min="1">
+              </div>
+            </div>
+            <div class="hint">p̂ se calcula automáticamente como x / n.</div>
+          </div>
+        </div>
+
+        <div class="control-block">
+          <div class="section-title"><span class="dot"></span>Nivel de confianza</div>
+          <div class="dial-readout" id="confReadout">95.0 %</div>
+          <input type="range" id="confSlider" min="80" max="99.9" step="0.1" value="95">
+          <div class="presets">
+            <button data-c="90">90 %</button>
+            <button data-c="95">95 %</button>
+            <button data-c="99">99 %</button>
+          </div>
+        </div>
+
+        <div class="control-block">
+          <div class="section-title"><span class="dot"></span>Precisión numérica</div>
+          <div class="segmented small" id="precSwitch">
+            <button data-p="2">2 dec.</button>
+            <button data-p="4">4 dec.</button>
+            <button data-p="6" class="active">6 dec.</button>
+            <button data-p="8">8 dec.</button>
+          </div>
+          <div class="hint">Cifras decimales mostradas en todos los resultados. El valor crítico se calcula internamente con unos 10 a 15 dígitos correctos (z ≈ 15, t y χ² ≈ 10) sin importar cuánto muestres aquí.</div>
+        </div>
+
+        <div class="hint">El cálculo se actualiza en tiempo real al modificar cualquier campo.</div>
+      </div>
+
+      <!-- DISPLAY -->
+      <div class="display-col">
+
+        <div class="tabbar" id="tabbar">
+          <button data-tab="calc" class="active">Calculadora de IC</button>
+          <button data-tab="hyp">Pruebas de hipótesis</button>
+          <button data-tab="sim">Simulación de cobertura</button>
+          <button data-tab="size">Tamaño de muestra</button>
+        </div>
+
+        <!-- PANEL 1: calculadora -->
+        <div class="tabpanel" id="panel-calc">
+          <div class="section-title"><span class="dot"></span>Distribución y región de confianza</div>
+          <div class="display-area">
+            <svg id="chart" viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+
+          <div class="section-title"><span class="dot"></span>Lectura del instrumento</div>
+          <div class="lcd-grid" id="lcdGrid"></div>
+
+          <details class="steps" open>
+            <summary>Procedimiento paso a paso</summary>
+            <div id="stepsBody"></div>
+          </details>
+
+          <div class="actions">
+            <button class="btn primary" id="btnCopy">Copiar resultado</button>
+            <button class="btn ghost" id="btnPrint">Exportar / imprimir informe</button>
+          </div>
+        </div>
+
+        <!-- PANEL 1B: pruebas de hipótesis -->
+        <div class="tabpanel" id="panel-hyp" style="display:none;">
+          <div class="section-title"><span class="dot"></span>Prueba estadística</div>
+
+          <label class="field-label">Tipo de prueba</label>
+          <select id="hypType" style="width:100%;padding:8px;border-radius:6px;border:1px solid var(--panel-line);font-family:var(--font-sans);font-size:13px;margin-bottom:12px;">
+            <option value="t1">t de una muestra (compara x̄ contra un valor μ₀)</option>
+            <option value="t2">t de dos muestras independientes (Welch)</option>
+            <option value="tp">t pareada (antes / después)</option>
+            <option value="chigof">Chi-cuadrado: bondad de ajuste</option>
+            <option value="chiind">Chi-cuadrado: independencia (tabla de contingencia)</option>
+            <option value="anova">ANOVA de un factor</option>
+          </select>
+
+          <div id="hypTailBlock" class="control-block" style="margin-bottom:12px;">
+            <label class="field-label">Hipótesis alternativa</label>
+            <div class="segmented small" id="tailSwitch">
+              <button data-tail="two" class="active">Dos colas (≠)</button>
+              <button data-tail="right">Cola derecha (&gt;)</button>
+              <button data-tail="left">Cola izquierda (&lt;)</button>
+            </div>
+          </div>
+
+          <!-- t una muestra -->
+          <div id="hypT1">
+            <label class="field-label">Datos de la muestra</label>
+            <textarea id="t1Data" style="min-height:64px;">23.1, 22.4, 24.0, 23.6, 22.9, 23.3, 24.1, 22.8</textarea>
+            <label class="field-label">Valor de referencia μ₀</label>
+            <input type="number" id="t1Mu0" value="23" step="any">
+          </div>
+
+          <!-- t dos muestras -->
+          <div id="hypT2" style="display:none;">
+            <label class="field-label">Grupo 1</label>
+            <textarea id="t2Data1" style="min-height:56px;">88, 92, 79, 85, 90, 87, 84, 91</textarea>
+            <label class="field-label">Grupo 2</label>
+            <textarea id="t2Data2" style="min-height:56px;">80, 83, 78, 82, 81, 85, 79, 80</textarea>
+            <div class="hint">Se usa la corrección de Welch (varianzas desiguales) — más robusta que asumir varianzas iguales, y GeoGebra no la aplica por defecto.</div>
+          </div>
+
+          <!-- t pareada -->
+          <div id="hypTP" style="display:none;">
+            <label class="field-label">Antes</label>
+            <textarea id="tpData1" style="min-height:56px;">70, 72, 68, 75, 71, 69, 73, 74</textarea>
+            <label class="field-label">Después</label>
+            <textarea id="tpData2" style="min-height:56px;">68, 70, 66, 71, 69, 67, 70, 71</textarea>
+          </div>
+
+          <!-- chi cuadrado bondad de ajuste -->
+          <div id="hypChiGof" style="display:none;">
+            <label class="field-label">Frecuencias observadas (separadas por coma)</label>
+            <textarea id="gofObs" style="min-height:48px;">18, 22, 25, 15, 20</textarea>
+            <label class="field-label">Frecuencias esperadas o proporciones (vacío = uniforme)</label>
+            <textarea id="gofExp" style="min-height:48px;" placeholder="ej: 20,20,20,20,20  o  0.2,0.2,0.2,0.2,0.2"></textarea>
+          </div>
+
+          <!-- chi cuadrado independencia -->
+          <div id="hypChiInd" style="display:none;">
+            <label class="field-label">Tabla de contingencia (una fila por línea, valores separados por coma o espacio)</label>
+            <textarea id="indTable" style="min-height:80px;">30, 10
+20, 40</textarea>
+          </div>
+
+          <!-- anova -->
+          <div id="hypAnova" style="display:none;">
+            <label class="field-label">Un grupo por línea (valores separados por coma o espacio)</label>
+            <textarea id="anovaData" style="min-height:90px;">12, 15, 14, 13, 16
+18, 20, 19, 17, 21
+10, 12, 11, 13, 9</textarea>
+          </div>
+
+          <div class="hint" style="margin-top:6px;">La significancia α usada es la implícita en el dial de "Nivel de confianza" de la pestaña anterior: α = 1 − confianza.</div>
+
+          <div class="section-title" style="margin-top:16px;"><span class="dot"></span>Distribución y región de rechazo</div>
+          <div class="display-area">
+            <svg id="hypChart" viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+
+          <div class="section-title"><span class="dot"></span>Resultado</div>
+          <div class="lcd-grid" id="hypLcd"></div>
+
+          <details class="steps" open>
+            <summary>Procedimiento paso a paso</summary>
+            <div id="hypSteps"></div>
+          </details>
+        </div>
+
+        <!-- PANEL 2: simulación de cobertura -->
+        <div class="tabpanel" id="panel-sim" style="display:none;">
+          <div class="section-title"><span class="dot"></span>¿Qué significa realmente un intervalo de confianza?</div>
+          <div class="hint" style="margin-bottom:12px;">
+            Un IC del 95% <b>no</b> dice "hay 95% de probabilidad de que μ esté aquí". Significa: si repitiéramos el muestreo muchas veces, aproximadamente el 95% de los intervalos construidos contendrían a la verdadera μ. Esta simulación lo demuestra extrayendo muestras reales de una población conocida.
+          </div>
+          <div class="control-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px;">
+            <div><label class="field-label">μ verdadera</label><input type="number" id="simMu" value="50" step="any"></div>
+            <div><label class="field-label">σ verdadera</label><input type="number" id="simSigma" value="10" step="any" min="0.01"></div>
+            <div><label class="field-label">n por muestra</label><input type="number" id="simN" value="30" min="2"></div>
+            <div><label class="field-label">Nº de muestras</label><input type="number" id="simM" value="120" min="10" max="250"></div>
+          </div>
+          <div class="hint">Usa el nivel de confianza del dial (pestaña anterior) y construye cada IC con la distribución t, igual que en la práctica real (σ desconocida por el investigador).</div>
+          <div class="actions" style="margin:10px 0 14px;">
+            <button class="btn primary" id="btnSim">Simular de nuevo</button>
+          </div>
+          <div class="display-area">
+            <svg id="simChart" viewBox="0 0 640 320" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+          <div class="lcd-grid" id="simLcd"></div>
+        </div>
+
+        <!-- PANEL 3: tamaño de muestra -->
+        <div class="tabpanel" id="panel-size" style="display:none;">
+          <div class="section-title"><span class="dot"></span>¿Cuántos datos necesito?</div>
+          <div class="segmented" id="sizeSwitch" style="margin-bottom:14px;">
+            <button data-size="mean" class="active">Para una media</button>
+            <button data-size="prop">Para una proporción</button>
+          </div>
+
+          <div id="sizeMean">
+            <div class="two-col">
+              <div>
+                <label class="field-label">Margen de error deseado (E)</label>
+                <input type="number" id="sizeE_mean" value="2" step="any" min="0.0001">
+              </div>
+              <div>
+                <label class="field-label">σ estimada</label>
+                <input type="number" id="sizeSigma" value="10" step="any" min="0">
+              </div>
+            </div>
+          </div>
+          <div id="sizeProp" style="display:none;">
+            <div class="two-col">
+              <div>
+                <label class="field-label">Margen de error deseado (E)</label>
+                <input type="number" id="sizeE_prop" value="0.03" step="any" min="0.0001" max="0.99">
+              </div>
+              <div>
+                <label class="field-label">p estimada (0.5 si no se sabe)</label>
+                <input type="number" id="sizeP" value="0.5" step="any" min="0.001" max="0.999">
+              </div>
+            </div>
+          </div>
+          <div class="hint" style="margin-top:8px;">Usa el nivel de confianza del dial (pestaña "Calculadora de IC").</div>
+
+          <div class="lcd-grid" style="margin-top:16px;" id="sizeLcd"></div>
+          <details class="steps" open style="margin-top:10px;">
+            <summary>Justificación del cálculo</summary>
+            <div id="sizeSteps"></div>
+          </details>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footnote">valor crítico calculado mediante función beta incompleta regularizada e integración numérica — no interpolado de tablas impresas</div>
+
+  <div class="credits">
+    <span class="role">Programador: Yokar David Lara Caraballo</span>
+  </div>
+</div>
+
+<script>
+/* ---------- núcleo estadístico ---------- */
+function erf(x){
+  const sign = x<0?-1:1; x=Math.abs(x);
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const t=1/(1+p*x);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+  return sign*y;
+}
+function normalCDF(x){ return 0.5*(1+erf(x/Math.SQRT2)); }
+function normalPDF(x){ return Math.exp(-x*x/2)/Math.sqrt(2*Math.PI); }
+function normalInvCDF(p){
+  let lo=-10, hi=10;
+  for(let i=0;i<200;i++){ const mid=(lo+hi)/2; if(normalCDF(mid)<p) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function logGamma(x){
+  const g=7;
+  const c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+  if(x<0.5) return Math.log(Math.PI/Math.sin(Math.PI*x)) - logGamma(1-x);
+  x-=1;
+  let a=c[0];
+  const t=x+g+0.5;
+  for(let i=1;i<g+2;i++) a+=c[i]/(x+i);
+  return 0.5*Math.log(2*Math.PI)+(x+0.5)*Math.log(t)-t+Math.log(a);
+}
+function betacf(x,a,b){
+  const MAXIT=200, EPS=3e-9, FPMIN=1e-30;
+  let qab=a+b, qap=a+1, qam=a-1;
+  let c=1, d=1-qab*x/qap;
+  if(Math.abs(d)<FPMIN) d=FPMIN;
+  d=1/d; let h=d;
+  for(let m=1;m<=MAXIT;m++){
+    const m2=2*m;
+    let aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN;
+    c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN;
+    d=1/d; h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d; if(Math.abs(d)<FPMIN)d=FPMIN;
+    c=1+aa/c; if(Math.abs(c)<FPMIN)c=FPMIN;
+    d=1/d; const del=d*c; h*=del;
+    if(Math.abs(del-1)<EPS) break;
+  }
+  return h;
+}
+function betainc(x,a,b){
+  if(x<=0) return 0;
+  if(x>=1) return 1;
+  const bt=Math.exp(logGamma(a+b)-logGamma(a)-logGamma(b)+a*Math.log(x)+b*Math.log(1-x));
+  if(x < (a+1)/(a+b+2)) return bt*betacf(x,a,b)/a;
+  return 1-bt*betacf(1-x,b,a)/b;
+}
+function tCDF(t,df){
+  const x = df/(df+t*t);
+  const p = betainc(x, df/2, 0.5);
+  return t>=0 ? 1-0.5*p : 0.5*p;
+}
+function tPDF(t,df){
+  const coef = Math.exp(logGamma((df+1)/2)-logGamma(df/2))/Math.sqrt(df*Math.PI);
+  return coef*Math.pow(1+(t*t)/df, -(df+1)/2);
+}
+function tInvCDF(p, df){
+  let lo=-1000, hi=1000;
+  for(let i=0;i<300;i++){ const mid=(lo+hi)/2; if(tCDF(mid,df)<p) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function parseRaw(text){
+  return text.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length).map(Number).filter(n=>!isNaN(n));
+}
+function mean(arr){ return arr.reduce((a,b)=>a+b,0)/arr.length; }
+function sampleSD(arr){ const m=mean(arr); const v=arr.reduce((a,b)=>a+(b-m)*(b-m),0)/(arr.length-1); return Math.sqrt(v); }
+function fmt(n, d){ if(d===undefined) d=PREC; if(!isFinite(n)) return "—"; return n.toLocaleString('es-CO',{minimumFractionDigits:d, maximumFractionDigits:d}); }
+let PREC = 6;
+
+/* ---------- estado de la interfaz ---------- */
+let mode = 'zmean';       // zmean | tmean | prop
+let entry = 'raw';        // raw | summary
+
+const modeSwitch = document.getElementById('modeSwitch');
+modeSwitch.addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  mode = b.dataset.mode;
+  [...modeSwitch.children].forEach(c=>c.classList.toggle('active', c===b));
+  document.getElementById('meanInputArea').style.display = (mode==='prop') ? 'none' : 'block';
+  document.getElementById('propInputArea').style.display = (mode==='prop') ? 'block' : 'none';
+  document.getElementById('sigmaBlock').style.display = (mode==='zmean') ? 'block' : 'none';
+  document.getElementById('sumSdBlock').style.display = (mode==='tmean') ? 'block' : 'none';
+  compute();
+});
+
+const entrySwitch = document.getElementById('entrySwitch');
+entrySwitch.addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  entry = b.dataset.entry;
+  [...entrySwitch.children].forEach(c=>c.classList.toggle('active', c===b));
+  document.getElementById('rawEntry').style.display = (entry==='raw') ? 'block' : 'none';
+  document.getElementById('summaryEntry').style.display = (entry==='summary') ? 'block' : 'none';
+  compute();
+});
+
+const confSlider = document.getElementById('confReadout');
+document.getElementById('confSlider').addEventListener('input', e=>{
+  document.getElementById('confReadout').textContent = parseFloat(e.target.value).toFixed(1)+' %';
+  compute();
+});
+document.querySelectorAll('.presets button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.getElementById('confSlider').value = btn.dataset.c;
+    document.getElementById('confReadout').textContent = parseFloat(btn.dataset.c).toFixed(1)+' %';
+    compute();
+  });
+});
+
+['rawData','sumN','sumMean','sumSd','sigmaVal','propX','propN'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', compute);
+});
+
+/* ---------- gráfico SVG ---------- */
+function drawChart(pdfFn, crit, xmaxIn, labelCrit){
+  const svg = document.getElementById('chart');
+  svg.innerHTML = '';
+  const NS = 'http://www.w3.org/2000/svg';
+  const W=640, H=260, left=50, right=610, base=214, top=24;
+  const xmax = Math.max(4.2, xmaxIn);
+  const vmax = pdfFn(0)*1.08;
+  const mapX = x => left + (x+xmax)/(2*xmax)*(right-left);
+  const mapY = v => base - (v/vmax)*(base-top);
+
+  function areaPath(xa,xb,steps=70){
+    let d = `M ${mapX(xa)},${base} `;
+    for(let i=0;i<=steps;i++){
+      const x = xa+(xb-xa)*i/steps;
+      d += `L ${mapX(x).toFixed(2)},${mapY(pdfFn(x)).toFixed(2)} `;
+    }
+    d += `L ${mapX(xb)},${base} Z`;
+    return d;
+  }
+  function curvePath(xa,xb,steps=140){
+    let d='';
+    for(let i=0;i<=steps;i++){
+      const x = xa+(xb-xa)*i/steps;
+      d += (i===0?'M ':'L ') + `${mapX(x).toFixed(2)},${mapY(pdfFn(x)).toFixed(2)} `;
+    }
+    return d;
+  }
+  const mk = (tag, attrs) => {
+    const el = document.createElementNS(NS, tag);
+    for(const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  };
+
+  // baseline
+  svg.appendChild(mk('line',{x1:left,y1:base,x2:right,y2:base,stroke:'#c9bd9d','stroke-width':1}));
+
+  // tail regions
+  svg.appendChild(mk('path',{d:areaPath(-xmax,-crit), fill:'var(--danger)', opacity:.28}));
+  svg.appendChild(mk('path',{d:areaPath(crit,xmax), fill:'var(--danger)', opacity:.28}));
+  // central confidence region
+  svg.appendChild(mk('path',{d:areaPath(-crit,crit), fill:'var(--verdigris)', opacity:.30}));
+  // curve outline
+  svg.appendChild(mk('path',{d:curvePath(-xmax,xmax), fill:'none', stroke:'#242b22', 'stroke-width':1.6}));
+
+  // critical needles
+  [-crit, crit].forEach(cv=>{
+    const x = mapX(cv);
+    svg.appendChild(mk('line',{x1:x,y1:base,x2:x,y2:mapY(pdfFn(cv))-2, stroke:'var(--copper)', 'stroke-width':1.6, 'stroke-dasharray':'2,2'}));
+    svg.appendChild(mk('circle',{cx:x, cy:mapY(pdfFn(cv)), r:3.2, fill:'var(--copper)'}));
+  });
+
+  // caliper bracket for CI
+  const y1 = top+2;
+  svg.appendChild(mk('line',{x1:mapX(-crit),y1:y1,x2:mapX(crit),y2:y1, stroke:'var(--copper)', 'stroke-width':1.2}));
+  svg.appendChild(mk('line',{x1:mapX(-crit),y1:y1-5,x2:mapX(-crit),y2:y1+5, stroke:'var(--copper)', 'stroke-width':1.2}));
+  svg.appendChild(mk('line',{x1:mapX(crit),y1:y1-5,x2:mapX(crit),y2:y1+5, stroke:'var(--copper)', 'stroke-width':1.2}));
+  const lbl = mk('text',{x:(mapX(-crit)+mapX(crit))/2, y:y1-8, 'text-anchor':'middle','font-size':'11','font-family':'Georgia, serif','fill':'#5b6357'});
+  lbl.textContent = 'región de confianza';
+  svg.appendChild(lbl);
+
+  // critical value labels
+  [-crit,crit].forEach(cv=>{
+    const t = mk('text',{x:mapX(cv), y:base+16, 'text-anchor':'middle','font-size':'11','font-family':'ui-monospace, monospace','fill':'#a8672b'});
+    t.textContent = (cv>0?'+':'')+cv.toFixed(3);
+    svg.appendChild(t);
+  });
+  const zero = mk('text',{x:mapX(0), y:base+16, 'text-anchor':'middle','font-size':'11','font-family':'ui-monospace, monospace','fill':'#5b6357'});
+  zero.textContent = '0';
+  svg.appendChild(zero);
+
+  const tagText = mk('text',{x:right, y:top+2, 'text-anchor':'end','font-size':'10.5','font-family':'Georgia, serif','font-style':'italic','fill':'#8b9a8e'});
+  tagText.textContent = labelCrit;
+  svg.appendChild(tagText);
+}
+
+/* ---------- fracción visual ---------- */
+function frac(num, den){
+  return `<span class="frac"><span class="num">${num}</span><span class="den">${den}</span></span>`;
+}
+
+/* ---------- cálculo principal ---------- */
+function compute(){
+  const confPct = parseFloat(document.getElementById('confSlider').value);
+  const alpha = 1 - confPct/100;
+  const lcd = document.getElementById('lcdGrid');
+  const stepsBody = document.getElementById('stepsBody');
+  lcd.innerHTML = ''; stepsBody.innerHTML = '';
+
+  function lcdCell(k,v,wide=false){
+    const div = document.createElement('div');
+    div.className = 'lcd-cell'+(wide?' wide':'');
+    div.innerHTML = `<div class="k">${k}</div><div class="v">${v}</div>`;
+    lcd.appendChild(div);
+  }
+  function stepLine(html){
+    const div = document.createElement('div');
+    div.className = 'step-line';
+    div.innerHTML = html;
+    stepsBody.appendChild(div);
+  }
+
+  if(mode==='zmean' || mode==='tmean'){
+    let n, xbar, s=null, sigma=null;
+    if(entry==='raw'){
+      const arr = parseRaw(document.getElementById('rawData').value);
+      if(arr.length < 2){ lcdCell('estado','datos insuficientes'); return; }
+      n = arr.length; xbar = mean(arr); s = sampleSD(arr);
+    } else {
+      n = parseFloat(document.getElementById('sumN').value);
+      xbar = parseFloat(document.getElementById('sumMean').value);
+      s = parseFloat(document.getElementById('sumSd').value);
+    }
+    if(mode==='zmean') sigma = parseFloat(document.getElementById('sigmaVal').value);
+    if(!n || n<2 || isNaN(xbar)){ lcdCell('estado','revisa los datos'); return; }
+
+    let crit, se, label, dfTxt='';
+    if(mode==='zmean'){
+      crit = normalInvCDF(1-alpha/2);
+      se = sigma/Math.sqrt(n);
+      label = `z*  (normal)`;
+      drawChart(normalPDF, crit, crit+1.2, `curva normal estándar`);
+    } else {
+      const df = n-1;
+      crit = tInvCDF(1-alpha/2, df);
+      se = s/Math.sqrt(n);
+      label = `t*  (df=${df})`;
+      dfTxt = `, df = ${df}`;
+      drawChart(x=>tPDF(x,df), crit, crit+1.2, `t de Student, df=${df}`);
+    }
+    const me = crit*se;
+    const lo = xbar-me, hi = xbar+me;
+
+    lcdCell('n', n);
+    lcdCell(mode==='zmean'?'σ (conocida)':'s (muestral)', fmt(mode==='zmean'?sigma:s));
+    lcdCell('x̄', fmt(xbar));
+    lcdCell('error estándar', fmt(se));
+    lcdCell(label, fmt(crit));
+    lcdCell('margen de error (E)', fmt(me));
+    lcdCell('intervalo de confianza', `[ ${fmt(lo)} ; ${fmt(hi)} ]`, true);
+
+    stepLine(`<b>1. Datos:</b> n = <code class="mono">${n}</code>, x̄ = <code class="mono">${fmt(xbar)}</code>${mode==='zmean' ? `, σ = <code class="mono">${fmt(sigma)}</code>` : `, s = <code class="mono">${fmt(s)}</code>`}, confianza = <code class="mono">${confPct.toFixed(1)}%</code> → α = <code class="mono">${fmt(alpha)}</code>`);
+    stepLine(`<b>2. Error estándar:</b> EE = ${frac(mode==='zmean'?'σ':'s','√n')} = ${frac(fmt(mode==='zmean'?sigma:s), '√'+n)} = <code class="mono">${fmt(se)}</code>`);
+    if(mode==='tmean'){
+      const df = n-1;
+      stepLine(`<b>3. Distribución de referencia:</b> t de Student con df = n − 1 = <code class="mono">${df}</code> grados de libertad. Función de densidad: f(t) = ${frac('Γ((df+1)/2)','√(df·π) · Γ(df/2)')} · (1 + t²/df)<sup>−(df+1)/2</sup>`);
+      stepLine(`<b>4. Valor crítico:</b> t<sub>1−α/2, df=${df}</sub> = <code class="mono">${fmt(crit)}</code> — obtenido invirtiendo la función de distribución acumulada mediante la beta incompleta regularizada I<sub>x</sub>(df/2, 1/2), resuelta por fracción continua y bisección adaptativa hasta ~10 dígitos significativos correctos`);
+    } else {
+      stepLine(`<b>3. Valor crítico:</b> z<sub>1−α/2</sub> = <code class="mono">${fmt(crit)}</code> — obtenido invirtiendo la CDF normal estándar Φ(z) = ½[1 + erf(z/√2)] por bisección hasta ~15 dígitos correctos`);
+    }
+    stepLine(`<b>5. Margen de error:</b> E = valor crítico × EE = ${fmt(crit)} × ${fmt(se)} = <code class="mono">${fmt(me)}</code>`);
+    stepLine(`<b>6. Intervalo de confianza:</b> x̄ ± E = ${fmt(xbar)} ± ${fmt(me)} → <code class="mono">[ ${fmt(lo)} ; ${fmt(hi)} ]</code>`);
+    if(mode==='tmean'){
+      stepsBody.insertAdjacentHTML('beforeend', `<div class="method-note">Se usa la distribución t porque σ es desconocida y se estima con s; a diferencia de una tabla t impresa (que solo cubre ciertos df fijos), aquí el valor crítico se calcula para el df exacto de tu muestra.</div>`);
+    }
+
+  } else { // proporción
+    const x = parseFloat(document.getElementById('propX').value);
+    const n = parseFloat(document.getElementById('propN').value);
+    if(!n || n<1 || x<0 || x>n){ lcdCell('estado','revisa x y n'); return; }
+    const phat = x/n;
+    const z = normalInvCDF(1-alpha/2);
+    const seWald = Math.sqrt(phat*(1-phat)/n);
+    const meWald = z*seWald;
+    const loWald = phat-meWald, hiWald = phat+meWald;
+
+    // Wilson score (más preciso para n pequeño o p extremo)
+    const z2 = z*z;
+    const denom = 1+z2/n;
+    const center = (phat + z2/(2*n)) / denom;
+    const halfW = (z*Math.sqrt(phat*(1-phat)/n + z2/(4*n*n))) / denom;
+    const loWil = center-halfW, hiWil = center+halfW;
+
+    drawChart(normalPDF, z, z+1.2, `normal estándar (aprox. de proporción)`);
+
+    lcdCell('n', n);
+    lcdCell('x (éxitos)', x);
+    lcdCell('p̂', fmt(phat));
+    lcdCell('error estándar', fmt(seWald));
+    lcdCell('z*', fmt(z));
+    lcdCell('margen de error (Wald)', fmt(meWald));
+    lcdCell('IC — Wald', `[ ${fmt(loWald)} ; ${fmt(hiWald)} ]`, true);
+    lcdCell('IC — Wilson (recomendado)', `[ ${fmt(loWil)} ; ${fmt(hiWil)} ]`, true);
+
+    stepLine(`<b>1. Proporción muestral:</b> p̂ = x / n = ${x} / ${n} = <code class="mono">${fmt(phat)}</code>, confianza = <code class="mono">${confPct.toFixed(1)}%</code> → α = <code class="mono">${fmt(alpha)}</code>`);
+    stepLine(`<b>2. Valor crítico:</b> z<sub>1−α/2</sub> = <code class="mono">${fmt(z)}</code>`);
+    stepLine(`<b>3. Error estándar (Wald):</b> EE = √( p̂(1−p̂) / n ) = <code class="mono">${fmt(seWald)}</code>`);
+    stepLine(`<b>4. Intervalo de Wald:</b> p̂ ± z·EE = ${fmt(phat)} ± ${fmt(meWald)} → <code class="mono">[ ${fmt(loWald)} ; ${fmt(hiWald)} ]</code>`);
+    stepLine(`<b>5. Intervalo de Wilson (corrección recomendada):</b> centro = <code class="mono">${fmt(center)}</code>, semiancho = <code class="mono">${fmt(halfW)}</code> → <code class="mono">[ ${fmt(loWil)} ; ${fmt(hiWil)} ]</code>`);
+    stepsBody.insertAdjacentHTML('beforeend', `<div class="method-note">El intervalo de Wald puede fallar cuando n es pequeño o p̂ está cerca de 0 o 1. El de Wilson corrige ese sesgo y es el que recomienda la mayoría de la literatura moderna.</div>`);
+  }
+}
+
+/* ---------- acciones ---------- */
+document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+document.getElementById('btnCopy').addEventListener('click', ()=>{
+  const rows = [...document.querySelectorAll('#lcdGrid .lcd-cell')].map(c=>{
+    const k = c.querySelector('.k').textContent;
+    const v = c.querySelector('.v').textContent;
+    return `${k}: ${v}`;
+  }).join('\n');
+  navigator.clipboard.writeText(rows).then(()=>{
+    const b = document.getElementById('btnCopy');
+    const old = b.textContent; b.textContent = 'Copiado ✓';
+    setTimeout(()=> b.textContent = old, 1400);
+  });
+});
+
+compute();
+
+/* ---------- pestañas ---------- */
+let simRun = false;
+document.getElementById('tabbar').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  document.querySelectorAll('#tabbar button').forEach(x=>x.classList.toggle('active', x===b));
+  document.querySelectorAll('.tabpanel').forEach(p=> p.style.display='none');
+  document.getElementById('panel-'+b.dataset.tab).style.display='block';
+  if(b.dataset.tab==='sim'){ runSimulation(); }
+  if(b.dataset.tab==='size'){ computeSize(); }
+  if(b.dataset.tab==='hyp'){ computeHyp(); }
+});
+
+/* ---------- generador normal (Box-Muller) ---------- */
+function randNormal(mu, sigma){
+  let u1 = Math.random() || 1e-12, u2 = Math.random();
+  const z = Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+  return mu + sigma*z;
+}
+
+/* ---------- simulación de cobertura ---------- */
+function runSimulation(){
+  const mu = parseFloat(document.getElementById('simMu').value);
+  const sigma = parseFloat(document.getElementById('simSigma').value);
+  const n = Math.max(2, Math.round(parseFloat(document.getElementById('simN').value)));
+  const M = Math.max(10, Math.min(250, Math.round(parseFloat(document.getElementById('simM').value))));
+  const confPct = parseFloat(document.getElementById('confSlider').value);
+  const alpha = 1 - confPct/100;
+  const df = n-1;
+
+  const intervals = [];
+  let hits = 0;
+  for(let i=0;i<M;i++){
+    const sample = [];
+    for(let j=0;j<n;j++) sample.push(randNormal(mu, sigma));
+    const xbar = mean(sample);
+    const s = sampleSD(sample);
+    const tcrit = tInvCDF(1-alpha/2, df);
+    const me = tcrit*s/Math.sqrt(n);
+    const lo = xbar-me, hi = xbar+me;
+    const contains = (mu>=lo && mu<=hi);
+    if(contains) hits++;
+    intervals.push({lo,hi,contains});
+  }
+
+  const svg = document.getElementById('simChart');
+  svg.innerHTML = '';
+  const NS='http://www.w3.org/2000/svg';
+  const W=640, H=320, left=60, right=610, top=14, bottom=300;
+  const range = intervals.reduce((r,iv)=>({min:Math.min(r.min,iv.lo), max:Math.max(r.max,iv.hi)}), {min:Infinity,max:-Infinity});
+  const pad = (range.max-range.min)*0.08;
+  const vmin = Math.min(range.min-pad, mu-pad), vmax = Math.max(range.max+pad, mu+pad);
+  const mapX = v => left + (v-vmin)/(vmax-vmin)*(right-left);
+  const rowH = (bottom-top)/M;
+  const mk=(tag,attrs)=>{ const el=document.createElementNS(NS,tag); for(const k in attrs) el.setAttribute(k,attrs[k]); return el; };
+
+  // línea de mu verdadera
+  const muX = mapX(mu);
+  svg.appendChild(mk('line',{x1:muX,y1:top-4,x2:muX,y2:bottom+4, stroke:'var(--copper)', 'stroke-width':1.6, 'stroke-dasharray':'4,3'}));
+  const muLbl = mk('text',{x:muX, y:top-8, 'text-anchor':'middle','font-size':'11','font-family':'ui-monospace, monospace','fill':'#a8672b'});
+  muLbl.textContent = 'μ = '+mu;
+  svg.appendChild(muLbl);
+
+  intervals.forEach((iv,i)=>{
+    const y = top + i*rowH + rowH/2;
+    const color = iv.contains ? 'var(--verdigris)' : 'var(--danger)';
+    svg.appendChild(mk('line',{x1:mapX(iv.lo),y1:y,x2:mapX(iv.hi),y2:y, stroke:color, 'stroke-width': Math.max(1, Math.min(2.2, rowH*0.8))}));
+  });
+
+  const coverage = (hits/M*100);
+  const lcd = document.getElementById('simLcd');
+  lcd.innerHTML='';
+  function cell(k,v,wide=false){ const d=document.createElement('div'); d.className='lcd-cell'+(wide?' wide':''); d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>`; lcd.appendChild(d); }
+  cell('simulaciones', M);
+  cell('n por muestra', n);
+  cell('confianza nominal', confPct.toFixed(1)+' %');
+  cell('IC que contuvieron a μ', hits+' de '+M, true);
+  cell('cobertura empírica', coverage.toFixed(1)+' %', true);
+  simRun = true;
+}
+document.getElementById('btnSim').addEventListener('click', runSimulation);
+['simMu','simSigma','simN','simM'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', runSimulation);
+});
+
+/* ---------- tamaño de muestra ---------- */
+let sizeMode = 'mean';
+document.getElementById('sizeSwitch').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  sizeMode = b.dataset.size;
+  [...document.getElementById('sizeSwitch').children].forEach(c=>c.classList.toggle('active', c===b));
+  document.getElementById('sizeMean').style.display = sizeMode==='mean' ? 'block' : 'none';
+  document.getElementById('sizeProp').style.display = sizeMode==='prop' ? 'block' : 'none';
+  computeSize();
+});
+['sizeE_mean','sizeSigma','sizeE_prop','sizeP'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', computeSize);
+});
+
+function computeSize(){
+  const confPct = parseFloat(document.getElementById('confSlider').value);
+  const alpha = 1-confPct/100;
+  const z = normalInvCDF(1-alpha/2);
+  const lcd = document.getElementById('sizeLcd');
+  const steps = document.getElementById('sizeSteps');
+  lcd.innerHTML=''; steps.innerHTML='';
+  function cell(k,v,wide=false){ const d=document.createElement('div'); d.className='lcd-cell'+(wide?' wide':''); d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>`; lcd.appendChild(d); }
+  function line(html){ const d=document.createElement('div'); d.className='step-line'; d.innerHTML=html; steps.appendChild(d); }
+
+  if(sizeMode==='mean'){
+    const E = parseFloat(document.getElementById('sizeE_mean').value);
+    const sigma = parseFloat(document.getElementById('sizeSigma').value);
+    if(!E || E<=0 || isNaN(sigma)){ cell('estado','revisa E y σ'); return; }
+    const nExact = Math.pow(z*sigma/E, 2);
+    const n = Math.ceil(nExact);
+    cell('z*', fmt(z));
+    cell('n exacto (sin redondear)', fmt(nExact,3));
+    cell('n requerido', n, true);
+    line(`<b>Fórmula:</b> n = ( z<sub>1−α/2</sub> · σ / E )² = ( ${fmt(z)} × ${fmt(sigma,2)} / ${fmt(E,2)} )² = <code class="mono">${fmt(nExact,3)}</code>`);
+    line(`<b>Redondeo:</b> se redondea siempre hacia arriba (nunca hacia abajo, porque un n menor no garantiza el margen de error deseado) → <code class="mono">n = ${n}</code>`);
+  } else {
+    const E = parseFloat(document.getElementById('sizeE_prop').value);
+    const p = parseFloat(document.getElementById('sizeP').value);
+    if(!E || E<=0 || isNaN(p) || p<=0 || p>=1){ cell('estado','revisa E y p'); return; }
+    const nExact = (z*z*p*(1-p))/(E*E);
+    const n = Math.ceil(nExact);
+    cell('z*', fmt(z));
+    cell('n exacto (sin redondear)', fmt(nExact,3));
+    cell('n requerido', n, true);
+    line(`<b>Fórmula:</b> n = z<sub>1−α/2</sub>² · p(1−p) / E² = ${fmt(z)}² × ${fmt(p,2)}×${fmt(1-p,2)} / ${fmt(E,3)}² = <code class="mono">${fmt(nExact,3)}</code>`);
+    line(`<b>Redondeo:</b> hacia arriba → <code class="mono">n = ${n}</code>`);
+    if(Math.abs(p-0.5)<1e-9) line(`<span style="color:var(--ink-soft);">p = 0.5 es el caso conservador: maximiza p(1−p) y garantiza el margen de error incluso sin conocer la proporción real.</span>`);
+  }
+}
+document.getElementById('confSlider').addEventListener('input', ()=>{
+  if(document.getElementById('panel-size').style.display!=='none') computeSize();
+  if(document.getElementById('panel-hyp').style.display!=='none') computeHyp();
+});
+
+/* ---------- precisión numérica ---------- */
+document.getElementById('precSwitch').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  PREC = parseInt(b.dataset.p, 10);
+  [...document.getElementById('precSwitch').children].forEach(c=>c.classList.toggle('active', c===b));
+  compute();
+  if(document.getElementById('panel-size').style.display!=='none') computeSize();
+  if(document.getElementById('panel-hyp').style.display!=='none') computeHyp();
+});
+
+/* ================= PRUEBAS DE HIPÓTESIS ================= */
+
+/* -- matemática adicional: gamma incompleta, chi-cuadrado, F -- */
+function gammaIncLower(x, a){
+  if(x<0 || a<=0) return NaN;
+  if(x===0) return 0;
+  if(x < a+1){
+    let ap=a, sum=1/a, del=sum;
+    for(let n=0;n<300;n++){
+      ap+=1; del*=x/ap; sum+=del;
+      if(Math.abs(del)<Math.abs(sum)*1e-14) break;
+    }
+    return sum*Math.exp(-x+a*Math.log(x)-logGamma(a));
+  } else {
+    const FPMIN=1e-300;
+    let b=x+1-a, c=1/FPMIN, d=1/b, h=d;
+    for(let i=1;i<300;i++){
+      const an=-i*(i-a);
+      b+=2;
+      d=an*d+b; if(Math.abs(d)<FPMIN) d=FPMIN;
+      c=b+an/c; if(Math.abs(c)<FPMIN) c=FPMIN;
+      d=1/d;
+      const del=d*c; h*=del;
+      if(Math.abs(del-1)<1e-14) break;
+    }
+    const Q = Math.exp(-x+a*Math.log(x)-logGamma(a))*h;
+    return 1-Q;
+  }
+}
+function chiPDF(x, df){
+  if(x<=0) return 0;
+  return Math.exp((df/2-1)*Math.log(x) - x/2 - (df/2)*Math.log(2) - logGamma(df/2));
+}
+function chiCDF(x, df){ return gammaIncLower(x/2, df/2); }
+function chiInvCDF(p, df){
+  let lo=0, hi=df*20+200;
+  for(let i=0;i<200;i++){ const mid=(lo+hi)/2; if(chiCDF(mid,df)<p) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+function fPDF(x, d1, d2){
+  if(x<=0) return 0;
+  const lognum = (d1/2)*Math.log(d1) + (d2/2)*Math.log(d2) + (d1/2-1)*Math.log(x);
+  const logden = logGamma(d1/2)+logGamma(d2/2)-logGamma((d1+d2)/2) + ((d1+d2)/2)*Math.log(d2+d1*x);
+  return Math.exp(lognum-logden);
+}
+function fCDF(x,d1,d2){
+  if(x<=0) return 0;
+  const xt = d1*x/(d1*x+d2);
+  return betainc(xt, d1/2, d2/2);
+}
+function fInvCDF(p,d1,d2){
+  let lo=0, hi=5000;
+  for(let i=0;i<200;i++){ const mid=(lo+hi)/2; if(fCDF(mid,d1,d2)<p) lo=mid; else hi=mid; }
+  return (lo+hi)/2;
+}
+
+/* -- UI: tipo de prueba / colas -- */
+let hypTail = 'two';
+const hypBlocks = {t1:'hypT1', t2:'hypT2', tp:'hypTP', chigof:'hypChiGof', chiind:'hypChiInd', anova:'hypAnova'};
+document.getElementById('hypType').addEventListener('change', ()=>{
+  const val = document.getElementById('hypType').value;
+  Object.values(hypBlocks).forEach(id=> document.getElementById(id).style.display='none');
+  document.getElementById(hypBlocks[val]).style.display='block';
+  document.getElementById('hypTailBlock').style.display = (val==='t1'||val==='t2'||val==='tp') ? 'block' : 'none';
+  computeHyp();
+});
+document.getElementById('tailSwitch').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  hypTail = b.dataset.tail;
+  [...document.getElementById('tailSwitch').children].forEach(c=>c.classList.toggle('active', c===b));
+  computeHyp();
+});
+['t1Data','t1Mu0','t2Data1','t2Data2','tpData1','tpData2','gofObs','gofExp','indTable','anovaData'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', computeHyp);
+});
+
+/* -- gráfico de rechazo -- */
+function drawTestChart(pdf, xmaxHint, rejectRanges, statValue, rejected, curveLabel){
+  const svg = document.getElementById('hypChart');
+  svg.innerHTML = '';
+  const NS='http://www.w3.org/2000/svg';
+  const W=640,H=260,left=50,right=610,base=214,top=24;
+  const xmax = Math.max(4.2, xmaxHint);
+  const nonNegative = xmaxHint>0 && pdf(-0.001)===0;
+  const MapX = x => nonNegative ? left + (x/xmax)*(right-left) : left + (x+xmax)/(2*xmax)*(right-left);
+  const vpeak = (()=>{ let m=0; for(let i=0;i<=200;i++){ const x=nonNegative? xmax*i/200 : -xmax+2*xmax*i/200; m=Math.max(m,pdf(x)); } return m*1.1; })();
+  const MapY = v => base - (v/vpeak)*(base-top);
+  const mk=(tag,attrs)=>{ const el=document.createElementNS(NS,tag); for(const k in attrs) el.setAttribute(k,attrs[k]); return el; };
+
+  svg.appendChild(mk('line',{x1:left,y1:base,x2:right,y2:base,stroke:'#c9bd9d','stroke-width':1}));
+
+  function areaPath(xa,xb,steps=70){
+    let d = `M ${MapX(xa)},${base} `;
+    for(let i=0;i<=steps;i++){ const x=xa+(xb-xa)*i/steps; d+=`L ${MapX(x).toFixed(2)},${MapY(pdf(x)).toFixed(2)} `; }
+    d += `L ${MapX(xb)},${base} Z`;
+    return d;
+  }
+  rejectRanges.forEach(([ra,rb])=>{
+    const a = Math.max(ra, nonNegative?0:-xmax), b = Math.min(rb, xmax);
+    if(b>a) svg.appendChild(mk('path',{d:areaPath(a,b), fill:'var(--danger)', opacity:.30}));
+  });
+
+  let curveD='';
+  const steps=160;
+  for(let i=0;i<=steps;i++){
+    const x = nonNegative? xmax*i/steps : -xmax+2*xmax*i/steps;
+    curveD += (i===0?'M ':'L ') + `${MapX(x).toFixed(2)},${MapY(pdf(x)).toFixed(2)} `;
+  }
+  svg.appendChild(mk('path',{d:curveD, fill:'none', stroke:'#242b22','stroke-width':1.6}));
+
+  // marcador del estadístico observado
+  const sx = MapX(Math.max(nonNegative?0:-xmax, Math.min(xmax, statValue)));
+  const markerColor = rejected ? 'var(--danger)' : 'var(--verdigris)';
+  svg.appendChild(mk('line',{x1:sx,y1:base,x2:sx,y2:top+6, stroke:markerColor, 'stroke-width':2}));
+  const tri = mk('polygon',{points:`${sx-6},${top} ${sx+6},${top} ${sx},${top+10}`, fill:markerColor});
+  svg.appendChild(tri);
+  const stLbl = mk('text',{x:sx, y:top-4, 'text-anchor':'middle','font-size':'11','font-family':'ui-monospace, monospace','fill':markerColor});
+  stLbl.textContent = 'estadístico = '+statValue.toFixed(3);
+  svg.appendChild(stLbl);
+
+  const tagText = mk('text',{x:right, y:top+2, 'text-anchor':'end','font-size':'10.5','font-family':'Georgia, serif','font-style':'italic','fill':'#8b9a8e'});
+  tagText.textContent = curveLabel;
+  svg.appendChild(tagText);
+}
+
+/* -- utilidades locales -- */
+function parseGroups(text){
+  return text.split(/\n+/).map(l=>l.trim()).filter(l=>l.length).map(l=>parseRaw(l));
+}
+
+function computeHyp(){
+  const type = document.getElementById('hypType').value;
+  const confPct = parseFloat(document.getElementById('confSlider').value);
+  const alpha = 1 - confPct/100;
+  const lcd = document.getElementById('hypLcd');
+  const stepsBody = document.getElementById('hypSteps');
+  lcd.innerHTML=''; stepsBody.innerHTML='';
+  function cell(k,v,wide=false){ const d=document.createElement('div'); d.className='lcd-cell'+(wide?' wide':''); d.innerHTML=`<div class="k">${k}</div><div class="v">${v}</div>`; lcd.appendChild(d); }
+  function line(html){ const d=document.createElement('div'); d.className='step-line'; d.innerHTML=html; stepsBody.appendChild(d); }
+  function decisionNote(pval, rejected){
+    line(`<b>Decisión:</b> p-valor = <code class="mono">${fmt(pval)}</code> ${rejected?'&lt;':'≥'} α = <code class="mono">${fmt(alpha)}</code> → ${rejected? '<b style="color:var(--danger)">se rechaza H₀</b>' : '<b style="color:var(--verdigris)">no se rechaza H₀</b>'}`);
+    stepsBody.insertAdjacentHTML('beforeend', `<div class="method-note">${rejected ? 'Hay evidencia estadística suficiente, al nivel de significancia elegido, para rechazar la hipótesis nula.' : 'No hay evidencia suficiente para rechazar la hipótesis nula al nivel de significancia elegido — esto no prueba que H₀ sea cierta, solo que los datos no la contradicen lo bastante.'}</div>`);
+  }
+
+  try{
+
+  if(type==='t1' || type==='t2' || type==='tp'){
+    let stat, df, label;
+    if(type==='t1'){
+      const data = parseRaw(document.getElementById('t1Data').value);
+      const mu0 = parseFloat(document.getElementById('t1Mu0').value);
+      if(data.length<2){ cell('estado','datos insuficientes'); return; }
+      const n=data.length, xbar=mean(data), s=sampleSD(data);
+      df = n-1;
+      stat = (xbar-mu0)/(s/Math.sqrt(n));
+      label='t';
+      line(`<b>1. Hipótesis:</b> H₀: μ = ${fmt(mu0,2)}  vs  H₁: μ ${hypTail==='two'?'≠':hypTail==='right'?'>':'<'} ${fmt(mu0,2)}`);
+      line(`<b>2. Estadístico:</b> t = (x̄ − μ₀) / (s/√n) = (${fmt(xbar)} − ${fmt(mu0,2)}) / (${fmt(s)}/√${n}) = <code class="mono">${fmt(stat)}</code>, df = ${df}`);
+    } else if(type==='t2'){
+      const d1 = parseRaw(document.getElementById('t2Data1').value);
+      const d2 = parseRaw(document.getElementById('t2Data2').value);
+      if(d1.length<2 || d2.length<2){ cell('estado','datos insuficientes'); return; }
+      const n1=d1.length, n2=d2.length, x1=mean(d1), x2=mean(d2), s1=sampleSD(d1), s2=sampleSD(d2);
+      const v1=s1*s1/n1, v2=s2*s2/n2;
+      stat = (x1-x2)/Math.sqrt(v1+v2);
+      df = Math.pow(v1+v2,2) / ( (v1*v1)/(n1-1) + (v2*v2)/(n2-1) );
+      label='t (Welch)';
+      line(`<b>1. Hipótesis:</b> H₀: μ₁ = μ₂  vs  H₁: μ₁ ${hypTail==='two'?'≠':hypTail==='right'?'>':'<'} μ₂`);
+      line(`<b>2. Estadístico (Welch):</b> t = (x̄₁ − x̄₂) / √(s₁²/n₁ + s₂²/n₂) = (${fmt(x1)} − ${fmt(x2)}) / √(${fmt(v1)} + ${fmt(v2)}) = <code class="mono">${fmt(stat)}</code>`);
+      line(`<b>3. Grados de libertad (Welch–Satterthwaite):</b> df = <code class="mono">${fmt(df,3)}</code> (no siempre es un entero, a diferencia del método de varianzas iguales)`);
+    } else {
+      const a = parseRaw(document.getElementById('tpData1').value);
+      const b = parseRaw(document.getElementById('tpData2').value);
+      if(a.length<2 || a.length!==b.length){ cell('estado','ambas columnas deben tener el mismo número de datos'); return; }
+      const diffs = a.map((v,i)=>v-b[i]);
+      const n=diffs.length, dbar=mean(diffs), sd=sampleSD(diffs);
+      df=n-1;
+      stat = dbar/(sd/Math.sqrt(n));
+      label='t (pareada)';
+      line(`<b>1. Hipótesis:</b> H₀: μ_d = 0  vs  H₁: μ_d ${hypTail==='two'?'≠':hypTail==='right'?'>':'<'} 0, donde d = antes − después`);
+      line(`<b>2. Estadístico:</b> t = d̄ / (s_d/√n) = ${fmt(dbar)} / (${fmt(sd)}/√${n}) = <code class="mono">${fmt(stat)}</code>, df = ${df}`);
+    }
+
+    let crit, pval, rejected, rejectRanges;
+    if(hypTail==='two'){
+      crit = tInvCDF(1-alpha/2, df);
+      pval = 2*(1-tCDF(Math.abs(stat), df));
+      rejected = Math.abs(stat) > crit;
+      rejectRanges = [[-100,-crit],[crit,100]];
+    } else if(hypTail==='right'){
+      crit = tInvCDF(1-alpha, df);
+      pval = 1-tCDF(stat, df);
+      rejected = stat > crit;
+      rejectRanges = [[crit,100]];
+    } else {
+      crit = -tInvCDF(1-alpha, df);
+      pval = tCDF(stat, df);
+      rejected = stat < crit;
+      rejectRanges = [[-100,crit]];
+    }
+    cell('estadístico ('+label+')', fmt(stat));
+    cell('df', typeof df==='number' && df%1!==0 ? fmt(df,3) : df);
+    cell('valor crítico', fmt(crit));
+    cell('p-valor', fmt(pval));
+    cell('decisión (α='+fmt(alpha,3)+')', rejected?'rechazar H₀':'no rechazar H₀', true);
+    line(`<b>3. Valor crítico y p-valor:</b> obtenidos por integración numérica de la t de Student (misma función usada en la calculadora de IC)`);
+    decisionNote(pval, rejected);
+    drawTestChart(x=>tPDF(x,df), Math.max(crit+1.5, Math.abs(stat)+1), rejectRanges, stat, rejected, `t de Student, df≈${fmt(df,2)}`);
+
+  } else if(type==='chigof'){
+    const obs = parseRaw(document.getElementById('gofObs').value);
+    let exp = parseRaw(document.getElementById('gofExp').value);
+    if(obs.length<2){ cell('estado','ingresa al menos dos categorías'); return; }
+    const total = obs.reduce((a,b)=>a+b,0);
+    if(exp.length===0){ exp = obs.map(()=> total/obs.length); }
+    else if(Math.abs(exp.reduce((a,b)=>a+b,0)-1)<0.01){ exp = exp.map(p=>p*total); }
+    if(exp.length!==obs.length){ cell('estado','observadas y esperadas deben tener la misma cantidad'); return; }
+    const chi2 = obs.reduce((s,o,i)=> s + Math.pow(o-exp[i],2)/exp[i], 0);
+    const df = obs.length-1;
+    const crit = chiInvCDF(1-alpha, df);
+    const pval = 1-chiCDF(chi2, df);
+    const rejected = chi2>crit;
+
+    cell('χ²', fmt(chi2));
+    cell('df', df);
+    cell('valor crítico', fmt(crit));
+    cell('p-valor', fmt(pval));
+    cell('decisión (α='+fmt(alpha,3)+')', rejected?'rechazar H₀':'no rechazar H₀', true);
+    line(`<b>1. Hipótesis:</b> H₀: las frecuencias observadas siguen la distribución esperada`);
+    line(`<b>2. Estadístico:</b> χ² = Σ (O − E)² / E = <code class="mono">${fmt(chi2)}</code>, df = k − 1 = ${df}`);
+    line(`<b>3. Valor crítico y p-valor:</b> mediante la función gamma incompleta regularizada (no de tabla)`);
+    decisionNote(pval, rejected);
+    drawTestChart(x=>chiPDF(x,df), Math.max(crit*1.3, chi2*1.15, 4), [[crit,10000]], chi2, rejected, `χ², df=${df}`);
+
+  } else if(type==='chiind'){
+    const rows = document.getElementById('indTable').value.trim().split(/\n+/).map(r=>parseRaw(r)).filter(r=>r.length);
+    if(rows.length<2 || rows[0].length<2){ cell('estado','se necesitan al menos 2 filas y 2 columnas'); return; }
+    const nrow=rows.length, ncol=rows[0].length;
+    const rowSum = rows.map(r=>r.reduce((a,b)=>a+b,0));
+    const colSum = Array(ncol).fill(0);
+    rows.forEach(r=> r.forEach((v,j)=> colSum[j]+=v));
+    const total = rowSum.reduce((a,b)=>a+b,0);
+    let chi2=0;
+    for(let i=0;i<nrow;i++) for(let j=0;j<ncol;j++){
+      const e = rowSum[i]*colSum[j]/total;
+      chi2 += Math.pow(rows[i][j]-e,2)/e;
+    }
+    const df = (nrow-1)*(ncol-1);
+    const crit = chiInvCDF(1-alpha, df);
+    const pval = 1-chiCDF(chi2, df);
+    const rejected = chi2>crit;
+
+    cell('χ²', fmt(chi2));
+    cell('df', df);
+    cell('valor crítico', fmt(crit));
+    cell('p-valor', fmt(pval));
+    cell('decisión (α='+fmt(alpha,3)+')', rejected?'rechazar H₀':'no rechazar H₀', true);
+    line(`<b>1. Hipótesis:</b> H₀: las dos variables (fila / columna) son independientes`);
+    line(`<b>2. Tabla:</b> ${nrow} filas × ${ncol} columnas, n total = ${total}`);
+    line(`<b>3. Estadístico:</b> χ² = Σ (O − E)² / E, con E = (total fila × total columna) / n = <code class="mono">${fmt(chi2)}</code>, df = (filas−1)(columnas−1) = ${df}`);
+    decisionNote(pval, rejected);
+    drawTestChart(x=>chiPDF(x,df), Math.max(crit*1.3, chi2*1.15, 4), [[crit,10000]], chi2, rejected, `χ², df=${df}`);
+
+  } else if(type==='anova'){
+    const groups = parseGroups(document.getElementById('anovaData').value).filter(g=>g.length>0);
+    if(groups.length<2){ cell('estado','se necesitan al menos 2 grupos'); return; }
+    const k = groups.length;
+    const N = groups.reduce((s,g)=>s+g.length,0);
+    const grandMean = groups.flat().reduce((a,b)=>a+b,0)/N;
+    const ssb = groups.reduce((s,g)=> s + g.length*Math.pow(mean(g)-grandMean,2), 0);
+    const ssw = groups.reduce((s,g)=>{ const m=mean(g); return s + g.reduce((s2,v)=>s2+Math.pow(v-m,2),0); },0);
+    const dfB=k-1, dfW=N-k;
+    const msb=ssb/dfB, msw=ssw/dfW;
+    const Fstat = msb/msw;
+    const crit = fInvCDF(1-alpha, dfB, dfW);
+    const pval = 1-fCDF(Fstat, dfB, dfW);
+    const rejected = Fstat>crit;
+
+    cell('F', fmt(Fstat));
+    cell('df (entre, dentro)', `${dfB} , ${dfW}`);
+    cell('valor crítico', fmt(crit));
+    cell('p-valor', fmt(pval));
+    cell('decisión (α='+fmt(alpha,3)+')', rejected?'rechazar H₀':'no rechazar H₀', true);
+    line(`<b>1. Hipótesis:</b> H₀: μ₁ = μ₂ = ... = μ_k (todas las medias de grupo son iguales)`);
+    line(`<b>2. Suma de cuadrados:</b> SSB = ${fmt(ssb)} (entre grupos), SSW = ${fmt(ssw)} (dentro de grupos)`);
+    line(`<b>3. Cuadrados medios:</b> MSB = SSB/(k−1) = ${fmt(msb)}, MSW = SSW/(N−k) = ${fmt(msw)}`);
+    line(`<b>4. Estadístico:</b> F = MSB / MSW = <code class="mono">${fmt(Fstat)}</code>, df = (${dfB}, ${dfW})`);
+    decisionNote(pval, rejected);
+    drawTestChart(x=>fPDF(x,dfB,dfW), Math.max(crit*1.3, Fstat*1.15, 4), [[crit,10000]], Fstat, rejected, `F, df=(${dfB},${dfW})`);
+  }
+
+  }catch(err){
+    line('Revisa los datos ingresados: '+err.message);
+  }
+}
+</script>
+
+<script>
+/* ===== EXTENSIÓN v1.1: pestañas nuevas (no modifica código previo) ===== */
+(function(){
+const $=id=>document.getElementById(id), LV=[80,85,90,95];
+const conf=()=>parseFloat($('confSlider').value);
+const tc=(l,df)=>tInvCDF(1-(1-l/100)/2,df);
+const srt=a=>[...a].sort((x,y)=>x-y);
+const qt=(s,p)=>{const h=(s.length-1)*p,l=Math.floor(h);return s[l]+(h-l)*((s[l+1]!==undefined?s[l+1]:s[l])-s[l]);};
+const T=(h,r,selIdx)=>`<div style="overflow-x:auto"><table class="xt"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.map((x,i)=>`<tr${i===selIdx?' class="sel"':''}>${x.map(y=>`<td>${y}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const C=a=>`<div class="lcd-grid">${a.map(([k,v,w])=>`<div class="lcd-cell${w?' wide':''}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}</div>`;
+const H=t=>`<div class="section-title xsec"><span class="dot"></span>${t}</div>`;
+const bad=m=>`<div class="xnote xwarn">${m}</div>`;
+const ta=(id,v,h)=>`<textarea id="${id}" style="min-height:${h||56}px;">${v}</textarea>`;
+const ex=[12.4,11.9,13.1,12.0,12.8,13.5,11.7,12.6,13.0,12.2].join(', ');
+
+/* barras de IC anidados */
+function ciSvg(c,rows){
+  const mn=Math.min(...rows.map(r=>r.lo)),mx=Math.max(...rows.map(r=>r.hi)),p=(mx-mn)*.1||1,a=mn-p,b=mx+p;
+  const X=v=>40+(v-a)/(b-a)*560,h=34+rows.length*30;
+  let s=`<svg viewBox="0 0 640 ${h}" style="width:100%;height:auto;display:block">`;
+  rows.forEach((r,i)=>{const y=34+i*30;
+    s+=`<line x1="${X(r.lo)}" x2="${X(r.hi)}" y1="${y}" y2="${y}" stroke="#a8672b" stroke-width="7" stroke-linecap="round" opacity="${.3+.7*i/Math.max(1,rows.length-1)}"/>`+
+       `<text x="2" y="${y+4}" font-size="11" fill="#5b6357" font-family="monospace">${r.l}</text>`;});
+  return s+`<line x1="${X(c)}" x2="${X(c)}" y1="16" y2="${h-6}" stroke="#5e8073" stroke-dasharray="4 3"/><text x="${X(c)}" y="12" font-size="11" text-anchor="middle" fill="#5e8073">${fmt(c,3)}</text></svg>`;
+}
+
+/* ---------- construir pestañas y paneles ---------- */
+const tabbar=$('tabbar'), col=tabbar.parentNode;
+[['t80','IC t · 80–95 %'],['two','Dos muestras'],['tbl','Tabla t y p-valor'],['boot','Bootstrap']].forEach(([k,l])=>{
+  const b=document.createElement('button'); b.dataset.tab=k; b.textContent=l; tabbar.appendChild(b);
+  const p=document.createElement('div'); p.className='tabpanel'; p.id='panel-'+k; p.style.display='none'; col.appendChild(p);
+});
+$('panel-t80').innerHTML=`
+  ${H('IC t de Student para la media — todos los niveles de 80 % a 95 %')}
+  <label class="field-label">Datos (o deja vacío y llena el resumen)</label>${ta('a_data',ex,60)}
+  <div class="xrow" style="margin-top:8px"><div><label class="field-label">n (resumen)</label><input type="number" id="a_n" step="1"></div>
+  <div><label class="field-label">x̄ (resumen)</label><input type="number" id="a_m" step="any"></div>
+  <div><label class="field-label">s (resumen)</label><input type="number" id="a_s" step="any"></div></div>
+  <div class="actions" style="margin:0 0 12px"><button class="btn ghost" id="a_load">Traer datos de la calculadora</button><button class="btn primary" id="a_copy">Copiar tabla</button></div>
+  <div id="a_out"></div>`;
+$('panel-two').innerHTML=`
+  ${H('IC para la diferencia de medias (t de Student)')}
+  <select class="xs" id="b_m"><option value="welch">Independientes — Welch (varianzas distintas)</option><option value="pool">Independientes — varianzas iguales (agrupada)</option><option value="paired">Pareadas (antes / después)</option></select>
+  <label class="field-label">Grupo 1</label>${ta('b_d1','88, 92, 79, 85, 90, 87, 84, 91')}
+  <label class="field-label">Grupo 2</label>${ta('b_d2','80, 83, 78, 82, 81, 85, 79, 80')}
+  <div class="hint" style="margin-bottom:10px">Diferencia = Grupo 1 − Grupo 2. El nivel resaltado es el del dial de confianza.</div><div id="b_out"></div>`;
+$('panel-tbl').innerHTML=`
+  ${H('Calculadora t ⇄ probabilidad')}
+  <div class="xrow"><div><label class="field-label">Grados de libertad (df)</label><input type="number" id="c_df" value="9" min="1" step="any"></div>
+  <div><label class="field-label">Estadístico t observado</label><input type="number" id="c_t" value="2.1" step="any"></div>
+  <div><label class="field-label">Confianza para t* (%)</label><input type="number" id="c_c" value="95" min="1" max="99.99" step="any"></div></div>
+  <div id="c_out"></div>
+  ${H('Tabla t de Student (dos colas) calculada, no copiada')}<div id="c_tab"></div>`;
+$('panel-boot').innerHTML=`
+  ${H('Bootstrap percentil vs. IC t')}
+  <div class="hint" style="margin-bottom:8px">Remuestrea tus datos con reemplazo y compara el IC bootstrap con el IC t. Si coinciden, la normalidad es razonable; si difieren, desconfía del IC t.</div>
+  ${ta('d_data',ex,60)}
+  <div class="two-col" style="margin-top:8px"><div><label class="field-label">Remuestras (B)</label><input type="number" id="d_b" value="5000" min="500" max="20000" step="500"></div>
+  <div style="display:flex;align-items:flex-end"><button class="btn primary" id="d_go" style="width:100%">Remuestrear</button></div></div>
+  <div id="d_out" style="margin-top:12px"></div>`;
+
+/* ---------- A: IC t 80–95 ---------- */
+function runA(){
+  const o=$('a_out'); let arr=parseRaw($('a_data').value),n,xb,s;
+  const sn=parseFloat($('a_n').value),sm=parseFloat($('a_m').value),ss=parseFloat($('a_s').value);
+  if(!arr.length && sn>=2 && !isNaN(sm) && ss>=0){n=sn;xb=sm;s=ss;arr=null;}
+  else if(arr.length>=2){n=arr.length;xb=mean(arr);s=sampleSD(arr);}
+  else {o.innerHTML=bad('Datos insuficientes: escribe al menos 2 observaciones o llena n, x̄ y s.');return;}
+  const df=n-1,se=s/Math.sqrt(n),c=conf(),al=1-c/100;
+  const rows=LV.map(l=>{const t=tc(l,df),e=t*se;return{l:l+' %',t,e,lo:xb-e,hi:xb+e};});
+  const sel=rows.concat([{l:c.toFixed(1)+' % (dial)',t:tc(c,df),e:tc(c,df)*se}]); const r=sel[4]; r.lo=xb-r.e; r.hi=xb+r.e;
+  const tu=tInvCDF(1-al,df), pe=r.t*s*Math.sqrt(1+1/n);
+  const v=s*s, c1=chiInvCDF(al/2,df), c2=chiInvCDF(1-al/2,df);
+  let h=H('Comparación de niveles')+C([['n',n],['x̄',fmt(xb)],['s',fmt(s)],['error estándar',fmt(se)],['df',df],['nivel del dial',c.toFixed(1)+' %']]);
+  h+=T(['Nivel','t*','Margen E','Límite inf.','Límite sup.','Ancho'],rows.map(q=>[q.l,fmt(q.t),fmt(q.e),fmt(q.lo),fmt(q.hi),fmt(2*q.e)]));
+  h+=ciSvg(xb,rows.concat([r]));
+  h+=`<div class="hint" style="margin:4px 0 12px">Mientras más confianza, más ancho el intervalo: es el precio de estar más seguro. Fíjate cómo crece t* con el nivel.</div>`;
+  h+=H(`Otros intervalos con el nivel del dial (${c.toFixed(1)} %)`)+T(['Tipo','Límite inf.','Límite sup.'],[
+    ['IC bilateral para μ',fmt(r.lo),fmt(r.hi)],
+    ['Unilateral: cota inferior de μ',fmt(xb-tu*se),'+∞'],
+    ['Unilateral: cota superior de μ','−∞',fmt(xb+tu*se)],
+    ['Predicción de 1 observación nueva',fmt(xb-pe),fmt(xb+pe)],
+    ['IC para σ² (χ²)',fmt(df*v/c2),fmt(df*v/c1)],
+    ['IC para σ (χ²)',fmt(Math.sqrt(df*v/c2)),fmt(Math.sqrt(df*v/c1))]]);
+  if(arr){
+    const q=srt(arr),m=xb,m2=arr.reduce((a,x)=>a+(x-m)**2,0)/n,m3=arr.reduce((a,x)=>a+(x-m)**3,0)/n,m4=arr.reduce((a,x)=>a+(x-m)**4,0)/n;
+    const sk=m3/Math.pow(m2,1.5),ku=m4/(m2*m2)-3,jb=n/6*(sk*sk+ku*ku/4),pj=Math.exp(-jb/2);
+    const q1=qt(q,.25),q3=qt(q,.75),iq=q3-q1,out=arr.filter(x=>x<q1-1.5*iq||x>q3+1.5*iq).length;
+    h+=H('Estadística descriptiva y supuestos')+C([['mediana',fmt(qt(q,.5))],['mín / máx',fmt(q[0],3)+' / '+fmt(q[n-1],3)],['rango',fmt(q[n-1]-q[0])],
+      ['Q1 / Q3',fmt(q1,3)+' / '+fmt(q3,3)],['IQR',fmt(iq)],['varianza',fmt(v)],['coef. variación',fmt(100*s/Math.abs(xb),2)+' %'],['asimetría',fmt(sk,4)],['curtosis (exceso)',fmt(ku,4)],
+      ['atípicos (regla 1.5·IQR)',out],['Jarque-Bera p',fmt(pj,4)]]);
+    h+=`<div class="xnote${(pj<al||out>0)?' xwarn':''}">${pj<al?'La prueba Jarque-Bera sugiere que los datos <b>no</b> son normales: con n pequeño el IC t puede ser poco fiable. ':'No hay evidencia fuerte contra la normalidad (JB es poco potente con n pequeño; revisa también un histograma). '}${out>0?`Hay ${out} dato(s) atípico(s) que pueden inflar s y ensanchar el IC.`:'Sin datos atípicos por la regla del IQR.'}</div>`;
+  }
+  h+=H('Interpretación')+`<div class="xnote">Con <b>${c.toFixed(1)} %</b> de confianza, la media poblacional μ está entre <b>${fmt(r.lo)}</b> y <b>${fmt(r.hi)}</b>. Esto significa que, si repitiéramos el muestreo muchas veces, ${c.toFixed(1)} % de los intervalos construidos así contendrían a μ; <u>no</u> es la probabilidad de que μ esté en este intervalo en particular.</div>`;
+  o.innerHTML=h; o._txt=['Nivel\tt*\tE\tInf\tSup'].concat(rows.map(q=>[q.l,fmt(q.t),fmt(q.e),fmt(q.lo),fmt(q.hi)].join('\t'))).join('\n');
+}
+$('a_data').addEventListener('input',runA);['a_n','a_m','a_s'].forEach(i=>$(i).addEventListener('input',runA));
+$('a_load').onclick=()=>{$('a_data').value=$('rawData').value;runA();};
+$('a_copy').onclick=()=>{const o=$('a_out');if(!o._txt)return;navigator.clipboard.writeText(o._txt).then(()=>{const b=$('a_copy'),t=b.textContent;b.textContent='Copiado ✓';setTimeout(()=>b.textContent=t,1400);});};
+
+/* ---------- B: dos muestras ---------- */
+function runB(){
+  const o=$('b_out'),m=$('b_m').value,g1=parseRaw($('b_d1').value),g2=parseRaw($('b_d2').value);
+  if(g1.length<2||g2.length<2){o.innerHTML=bad('Cada grupo necesita al menos 2 datos.');return;}
+  const n1=g1.length,n2=g2.length,x1=mean(g1),x2=mean(g2),s1=sampleSD(g1),s2=sampleSD(g2);
+  let d,se,df,es,esn;
+  if(m==='paired'){
+    if(n1!==n2){o.innerHTML=bad('Para datos pareados ambos grupos deben tener el mismo n.');return;}
+    const dd=g1.map((v,i)=>v-g2[i]),sd=sampleSD(dd);d=mean(dd);se=sd/Math.sqrt(n1);df=n1-1;es=d/sd;esn='d de Cohen (pareada)';
+  }else if(m==='welch'){
+    const a=s1*s1/n1,b=s2*s2/n2;d=x1-x2;se=Math.sqrt(a+b);df=(a+b)**2/(a*a/(n1-1)+b*b/(n2-1));es=d/Math.sqrt((s1*s1+s2*s2)/2);esn='d de Cohen';
+  }else{
+    const sp2=((n1-1)*s1*s1+(n2-1)*s2*s2)/(n1+n2-2);d=x1-x2;se=Math.sqrt(sp2*(1/n1+1/n2));df=n1+n2-2;es=d/Math.sqrt(sp2);esn='d de Cohen';
+  }
+  const c=conf(),lv=LV.concat([c]),rows=lv.map(l=>{const t=tc(l,df),e=t*se;return{l:(l===c&&!LV.includes(l)?l.toFixed(1)+' % (dial)':l+' %'),t,e,lo:d-e,hi:d+e};});
+  const sig=q=>(q.lo>0||q.hi<0)?'Sí':'No';
+  let h=C([['n₁ / n₂',n1+' / '+n2],['x̄₁ / x̄₂',fmt(x1,3)+' / '+fmt(x2,3)],['s₁ / s₂',fmt(s1,3)+' / '+fmt(s2,3)],['diferencia (x̄₁−x̄₂)',fmt(d)],['error estándar',fmt(se)],['df',fmt(df,m==='welch'?3:0)],[esn,fmt(Math.abs(es),3)+(Math.abs(es)<.2?' · trivial':Math.abs(es)<.5?' · pequeño':Math.abs(es)<.8?' · mediano':' · grande')]]);
+  h+=T(['Nivel','t*','Margen E','Límite inf.','Límite sup.','¿Diferencia ≠ 0?'],rows.map(q=>[q.l,fmt(q.t),fmt(q.e),fmt(q.lo),fmt(q.hi),sig(q)]),LV.includes(c)?LV.indexOf(c):4);
+  h+=ciSvg(d,rows)+`<div class="hint" style="margin:4px 0 12px">Si el intervalo no contiene el 0, la diferencia es significativa a ese nivel de confianza (equivale a rechazar H₀: μ₁=μ₂ con α = 1−nivel).</div>`;
+  if(m!=='paired'){const F=s1*s1/(s2*s2),cd=fCDF(F,n1-1,n2-1),pF=Math.min(1,2*Math.min(cd,1-cd));
+    h+=`<div class="xnote${pF<1-c/100?' xwarn':''}">Prueba F de igualdad de varianzas: F = ${fmt(F,4)}, p ≈ ${fmt(pF,4)}. ${pF<1-c/100?'Las varianzas parecen distintas: usa Welch.':'No hay evidencia de varianzas distintas; ambos métodos darán resultados parecidos.'}</div>`;}
+  o.innerHTML=h;
+}
+['b_d1','b_d2'].forEach(i=>$(i).addEventListener('input',runB));$('b_m').addEventListener('change',runB);
+
+/* ---------- C: tabla t y p-valor ---------- */
+function runC(){
+  const df=parseFloat($('c_df').value),t=parseFloat($('c_t').value),cf=parseFloat($('c_c').value);
+  if(!(df>0)){$('c_out').innerHTML=bad('df debe ser mayor que 0.');return;}
+  const pr=1-tCDF(t,df),pl=tCDF(t,df),p2=2*Math.min(pr,pl),tcr=tc(cf,df);
+  $('c_out').innerHTML=C([['P(T > t) cola derecha',fmt(pr,6)],['P(T < t) cola izquierda',fmt(pl,6)],['p-valor dos colas',fmt(p2,6)],['t* para '+cf+' % (df='+df+')',fmt(tcr)],['z* equivalente',fmt(normalInvCDF(1-(1-cf/100)/2))],['t* − z* (costo de estimar σ)',fmt(tcr-normalInvCDF(1-(1-cf/100)/2))]]);
+}
+['c_df','c_t','c_c'].forEach(i=>$(i).addEventListener('input',runC));
+let tabDone=false;
+function runTab(){
+  if(tabDone)return;tabDone=true;
+  const dfs=[...Array(30)].map((_,i)=>i+1).concat([40,50,60,80,100,120]);
+  const rows=dfs.map(d=>[d].concat(LV.map(l=>fmt(tc(l,d),4)))).concat([['∞ (z)'].concat(LV.map(l=>fmt(normalInvCDF(1-(1-l/100)/2),4)))]);
+  $('c_tab').innerHTML=T(['df'].concat(LV.map(l=>'IC '+l+' %')),rows);
+}
+
+/* ---------- D: bootstrap ---------- */
+function runD(){
+  const o=$('d_out'),arr=parseRaw($('d_data').value);
+  if(arr.length<3){o.innerHTML=bad('Escribe al menos 3 datos.');return;}
+  const B=Math.min(20000,Math.max(500,parseInt($('d_b').value)||5000)),n=arr.length,ms=new Array(B);
+  for(let i=0;i<B;i++){let s=0;for(let j=0;j<n;j++)s+=arr[Math.floor(Math.random()*n)];ms[i]=s/n;}
+  ms.sort((a,b)=>a-b);
+  const xb=mean(arr),se=sampleSD(arr)/Math.sqrt(n),df=n-1,c=conf();
+  const rows=LV.concat(LV.includes(c)?[]:[c]).map(l=>{const a=(1-l/100)/2,t=tc(l,df);return[l+' %',fmt(xb-t*se),fmt(xb+t*se),fmt(qt(ms,a)),fmt(qt(ms,1-a)),fmt(2*t*se),fmt(qt(ms,1-a)-qt(ms,a))];});
+  const lo=qt(ms,.025),hi=qt(ms,.975),mn=ms[0],mx=ms[B-1],K=30,bw=(mx-mn)/K||1,cnt=Array(K).fill(0);
+  ms.forEach(v=>cnt[Math.min(K-1,Math.floor((v-mn)/bw))]++);
+  const cm=Math.max(...cnt),X=v=>30+(v-mn)/(mx-mn||1)*580;
+  let s='<svg viewBox="0 0 640 190" style="width:100%;height:auto;display:block">';
+  cnt.forEach((k,i)=>{const x=30+i*580/K,h=k/cm*140,m=mn+(i+.5)*bw;s+=`<rect x="${x}" y="${165-h}" width="${580/K-1}" height="${h}" fill="${m>=lo&&m<=hi?'#5e8073':'#c98a4e'}" opacity=".85"/>`;});
+  s+=`<line x1="${X(xb)}" x2="${X(xb)}" y1="10" y2="168" stroke="#242b22" stroke-dasharray="4 3"/><text x="${X(xb)}" y="182" font-size="11" text-anchor="middle" fill="#242b22">x̄ = ${fmt(xb,3)}</text></svg>`;
+  o.innerHTML=C([['n',n],['remuestras',B],['x̄ original',fmt(xb)],['error est. bootstrap',fmt(sampleSD(ms))],['error est. t (s/√n)',fmt(se)]])+
+    H('Distribución bootstrap de la media (verde = 95 % central)')+`<div class="display-area">${s}</div>`+
+    T(['Nivel','t inf.','t sup.','Bootstrap inf.','Bootstrap sup.','Ancho t','Ancho boot.'],rows)+
+    `<div class="xnote">Cada clic en «Remuestrear» da cifras ligeramente distintas (es aleatorio). Con n pequeño el bootstrap suele quedar algo más estrecho que el IC t.</div>`;
+}
+$('d_go').onclick=runD;
+
+/* ---------- activación ---------- */
+const R={t80:runA,two:runB,tbl:()=>{runTab();runC();},boot:()=>{if(!$('d_out').innerHTML)runD();}};
+tabbar.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&R[b.dataset.tab])R[b.dataset.tab]();});
+$('confSlider').addEventListener('input',()=>{const a=document.querySelector('#tabbar button.active');if(a&&(a.dataset.tab==='t80'||a.dataset.tab==='two'))R[a.dataset.tab]();});
+document.querySelectorAll('.presets button').forEach(b=>b.addEventListener('click',()=>{const a=document.querySelector('#tabbar button.active');if(a&&(a.dataset.tab==='t80'||a.dataset.tab==='two'))R[a.dataset.tab]();}));
+$('precSwitch').addEventListener('click',()=>{const a=document.querySelector('#tabbar button.active');if(a&&R[a.dataset.tab]&&a.dataset.tab!=='boot')setTimeout(()=>{if(a.dataset.tab==='tbl'){tabDone=false;}R[a.dataset.tab]();},0);});
+})();
+</script>
+
+<script>
+/* ===== EXTENSIÓN v1.2: más pestañas (solo añadidos) ===== */
+(function(){
+const $=id=>document.getElementById(id),LV=[80,85,90,95];
+const conf=()=>parseFloat($('confSlider').value);
+const tc=(l,df)=>tInvCDF(1-(1-l/100)/2,df),zc=l=>normalInvCDF(1-(1-l/100)/2);
+const lvs=c=>LV.concat(LV.includes(c)?[]:[c]),lb=(l,c)=>l+' %'+(!LV.includes(l)&&l===c?' (dial)':'');
+const T=(h,r)=>`<div style="overflow-x:auto"><table class="xt"><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${r.map(x=>`<tr>${x.map(y=>`<td>${y}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const C=a=>`<div class="lcd-grid">${a.map(([k,v,w])=>`<div class="lcd-cell${w?' wide':''}"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}</div>`;
+const H=t=>`<div class="section-title xsec"><span class="dot"></span>${t}</div>`;
+const bad=m=>`<div class="xnote xwarn">${m}</div>`,note=m=>`<div class="xnote">${m}</div>`;
+const ta=(id,v,h)=>`<textarea id="${id}" style="min-height:${h||56}px;">${v}</textarea>`;
+const inp=(id,l,v,st)=>`<div><label class="field-label">${l}</label><input type="number" id="${id}" value="${v}" step="${st||'any'}"></div>`;
+const iv=a=>`[${fmt(a[0],4)} ; ${fmt(a[1],4)}]`,num=v=>parseFloat(String(v).replace(',','.'));
+const svgo=(h,b)=>`<div class="display-area"><svg viewBox="0 0 640 ${h}" style="width:100%;height:auto;display:block">${b}</svg></div>`;
+
+const tabbar=$('tabbar'),col=tabbar.parentNode;
+[['ss','Muestra y potencia'],['reg','Regresión y correlación'],['pp','Proporciones'],['pr','Práctica'],['gd','Guía y glosario']].forEach(([k,l])=>{
+  const b=document.createElement('button');b.dataset.tab=k;b.textContent=l;tabbar.appendChild(b);
+  const p=document.createElement('div');p.className='tabpanel';p.id='panel-'+k;p.style.display='none';col.appendChild(p);
+});
+$('panel-ss').innerHTML=`${H('Tamaño de muestra para estimar una media: z frente a t')}
+  <div class="xrow" style="grid-template-columns:1fr 1fr">${inp('s_s','σ (o s) estimada',10)}${inp('s_e','Margen de error deseado E',2)}</div><div id="s_o1"></div>
+  ${H('Potencia de la prueba t de una muestra (aproximada)')}
+  <div class="xrow">${inp('s_d','Diferencia a detectar |μ−μ₀|',3)}${inp('s_n','n disponible',20,1)}${inp('s_p','Potencia objetivo',0.8)}</div><div id="s_o2"></div>`;
+$('panel-reg').innerHTML=`${H('Regresión lineal simple: IC de pendiente, intercepto y r (con t de Student)')}
+  <label class="field-label">X</label>${ta('r_x','1, 2, 3, 4, 5, 6, 7, 8')}<label class="field-label">Y</label>${ta('r_y','2.1, 3.9, 6.2, 7.8, 10.1, 12.2, 13.8, 16.1')}
+  <div class="xrow" style="grid-template-columns:1fr 2fr">${inp('r_x0','Predecir en x₀',9)}<div class="hint" style="align-self:end">El IC y el nivel salen del dial de confianza.</div></div><div id="r_o"></div>`;
+$('panel-pp').innerHTML=`${H('Proporciones: IC de Wald, Wilson, Agresti-Coull y Clopper-Pearson (exacto)')}
+  <div class="xrow" style="grid-template-columns:repeat(4,1fr)">${inp('p_x1','x₁ (éxitos)',184,1)}${inp('p_n1','n₁',250,1)}${inp('p_x2','x₂ (grupo 2, opcional)',150,1)}${inp('p_n2','n₂',250,1)}</div><div id="p_o"></div>`;
+$('panel-pr').innerHTML=`${H('Modo práctica: ejercicios aleatorios con solución paso a paso')}
+  <select class="xs" id="q_t"><option value="ic">IC t para la media (σ desconocida)</option><option value="n">Tamaño de muestra para una media</option><option value="p">IC para una proporción (Wald)</option></select>
+  <div class="actions" style="margin:0 0 12px"><button class="btn primary" id="q_new">Nuevo ejercicio</button><span id="q_sc" class="hint" style="align-self:center"></span></div>
+  <div id="q_q" class="xnote">Pulsa «Nuevo ejercicio».</div>
+  <div class="two-col"><div><label class="field-label" id="q_la">Límite inferior</label><input type="text" id="q_a"></div><div id="q_bw"><label class="field-label">Límite superior</label><input type="text" id="q_b"></div></div>
+  <div class="actions"><button class="btn primary" id="q_v">Verificar</button><button class="btn ghost" id="q_s">Ver solución</button></div><div id="q_f" style="margin-top:12px"></div>`;
+$('panel-gd').innerHTML=`${H('¿Qué método necesito?')}<select class="xs" id="g_sel"></select><div id="g_a"></div>${H('Glosario y preguntas frecuentes')}<div id="g_l"></div>`;
+
+/* ---------- Muestra y potencia ---------- */
+function runS(){
+  const s=+$('s_s').value,E=+$('s_e').value,d=+$('s_d').value,n0=parseInt($('s_n').value),pw=+$('s_p').value,c=conf(),al=1-c/100,lv=lvs(c);
+  if(!(s>0&&E>0)){$('s_o1').innerHTML=bad('σ y E deben ser positivos.');return;}
+  const nT=l=>{let n=Math.max(2,Math.ceil((zc(l)*s/E)**2));for(let i=0;i<60;i++){const m=Math.max(2,Math.ceil((tc(l,n-1)*s/E)**2));if(m===n)break;n=m;}return n;};
+  const rows=lv.map(l=>{const nz=Math.ceil((zc(l)*s/E)**2),nt=nT(l);return[lb(l,c),fmt(zc(l),4),fmt(tc(l,nt-1),4),nz,nt,'+'+(nt-nz)];});
+  const ns=[3,4,5,6,8,10,12,15,18,20,25,30,40,50,60,80,100],cl=['#9bb5a8','#5e8073','#c98a4e','#a8672b'],dt=LV.map(l=>ns.map(n=>tc(l,n-1)*s/Math.sqrt(n))),mx=Math.max(...dt.map(x=>x[0])),X=n=>40+(n-3)/97*570,Y=v=>190-v/mx*170;
+  let g=`<line x1="40" x2="610" y1="190" y2="190" stroke="#5b6357"/><text x="325" y="208" font-size="11" fill="#5b6357" text-anchor="middle">n →  (margen de error E en el eje vertical)</text>`;
+  dt.forEach((d,i)=>{g+=`<polyline fill="none" stroke="${cl[i]}" stroke-width="2" points="${ns.map((n,j)=>X(n)+','+Y(d[j])).join(' ')}"/><text x="560" y="${16+i*13}" font-size="11" fill="${cl[i]}">${LV[i]} %</text>`;});
+  $('s_o1').innerHTML=T(['Nivel','z*','t* (n final)','n con z','n con t','Diferencia'],rows)+svgo(215,g)+note('Con z se subestima n cuando la muestra es pequeña, porque t* es mayor que z*. Se itera: se calcula n, luego t* con df = n−1, y se repite hasta que n no cambie. La curva muestra los rendimientos decrecientes: duplicar n no reduce E a la mitad, hace falta cuadruplicarlo.');
+  if(!(d>0&&n0>=2&&pw>0&&pw<1)){$('s_o2').innerHTML=bad('Revisa δ>0, n≥2 y 0<potencia<1.');return;}
+  const P=(n,a)=>{const df=n-1,t=tInvCDF(1-a/2,df),nc=d*Math.sqrt(n)/s,u=t*(1-1/(4*df)),sd=Math.sqrt(1+t*t/(2*df));return 1-normalCDF((u-nc)/sd)+normalCDF((-u-nc)/sd);};
+  const nr=a=>{for(let n=2;n<=1500;n++)if(P(n,a)>=pw)return n;return '>1500';};
+  const pr=lv.map(l=>{const a=1-l/100;return[lb(l,c),fmt(a,3),fmt(P(n0,a),4),fmt(1-P(n0,a),4),nr(a)];});
+  $('s_o2').innerHTML=T(['Confianza','α','Potencia con n','β (error tipo II)','n para potencia objetivo'],pr)+note('Potencia = probabilidad de detectar un efecto real de tamaño δ. Usa la aproximación normal a la t no central (muy cercana al valor exacto). Más confianza (α menor) baja la potencia; para recuperarla hay que aumentar n o el efecto a detectar.');
+}
+['s_s','s_e','s_d','s_n','s_p'].forEach(i=>$(i).addEventListener('input',runS));
+
+/* ---------- Regresión y correlación ---------- */
+function runR(){
+  const x=parseRaw($('r_x').value),y=parseRaw($('r_y').value),x0=parseFloat($('r_x0').value),c=conf(),o=$('r_o');
+  if(x.length!==y.length||x.length<3){o.innerHTML=bad('X e Y deben tener el mismo número de datos (mínimo 3).');return;}
+  const n=x.length,mx=mean(x),my=mean(y),Sxx=x.reduce((a,v)=>a+(v-mx)**2,0),Syy=y.reduce((a,v)=>a+(v-my)**2,0),Sxy=x.reduce((a,v,i)=>a+(v-mx)*(y[i]-my),0);
+  if(Sxx===0||Syy===0){o.innerHTML=bad('X o Y no varían: no se puede ajustar la recta.');return;}
+  const b1=Sxy/Sxx,b0=my-b1*mx,df=n-2,sse=Math.max(0,Syy-b1*Sxy),se=Math.sqrt(sse/df),r=Sxy/Math.sqrt(Sxx*Syy),sb1=se/Math.sqrt(Sxx),sb0=se*Math.sqrt(1/n+mx*mx/Sxx),tb=b1/sb1,pv=2*(1-tCDF(Math.abs(tb),df));
+  const lv=lvs(c),rows=lv.map(l=>{const t=tc(l,df);return[lb(l,c),fmt(t,4),iv([b1-t*sb1,b1+t*sb1]),iv([b0-t*sb0,b0+t*sb0])];});
+  const zf=Math.atanh(r),zz=zc(c),rl=n>3?[Math.tanh(zf-zz/Math.sqrt(n-3)),Math.tanh(zf+zz/Math.sqrt(n-3))]:[NaN,NaN];
+  const t=tc(c,df),yh=b0+b1*x0,k=1/n+(x0-mx)**2/Sxx,em=t*se*Math.sqrt(k),ep=t*se*Math.sqrt(1+k);
+  const band=[...Array(25)].map((_,i)=>{const xv=Math.min(...x)+i*(Math.max(...x)-Math.min(...x))/24,e=t*se*Math.sqrt(1/n+(xv-mx)**2/Sxx);return[xv,b0+b1*xv-e,b0+b1*xv+e];});
+  const ys=y.concat(band.flatMap(q=>[q[1],q[2]])),xa=Math.min(...x),xb=Math.max(...x),ya=Math.min(...ys),yb=Math.max(...ys),px=(xb-xa)*.06||1,py=(yb-ya)*.08||1;
+  const X=v=>45+(v-xa+px)/(xb-xa+2*px)*565,Y=v=>205-(v-ya+py)/(yb-ya+2*py)*190;
+  let g=`<polygon fill="#5e807340" points="${band.map(q=>X(q[0])+','+Y(q[2])).concat(band.slice().reverse().map(q=>X(q[0])+','+Y(q[1]))).join(' ')}"/><line x1="${X(xa)}" y1="${Y(b0+b1*xa)}" x2="${X(xb)}" y2="${Y(b0+b1*xb)}" stroke="#5e8073" stroke-width="2"/>`+x.map((v,i)=>`<circle cx="${X(v)}" cy="${Y(y[i])}" r="3.6" fill="#a8672b"/>`).join('');
+  o.innerHTML=C([['n',n],['ŷ = b₀ + b₁x',`${fmt(b0,4)} + ${fmt(b1,4)}·x`,1],['r',fmt(r,5)],['R²',fmt(r*r,5)],['error est. residual',fmt(se,5)],['t de la pendiente',fmt(tb,4)],['p-valor (H₀: β₁=0)',fmt(pv,6)],['IC r (Fisher, '+c.toFixed(1)+' %)',iv(rl),1]])+
+    H('IC de los coeficientes (t de Student, df = n − 2 = '+df+')')+T(['Nivel','t*','β₁ (pendiente)','β₀ (intercepto)'],rows)+svgo(220,g)+
+    (isNaN(x0)?'':H('Predicción en x₀ = '+x0)+T(['Tipo ('+c.toFixed(1)+' %)','ŷ','Intervalo'],[['IC de la respuesta media',fmt(yh,4),iv([yh-em,yh+em])],['Intervalo de predicción (1 dato)',fmt(yh,4),iv([yh-ep,yh+ep])]]))+
+    note('La banda verde es el IC de la respuesta media. Si el IC de β₁ no contiene 0, hay relación lineal significativa a ese nivel. Extrapolar (x₀ fuera del rango de X) es poco fiable.');
+}
+['r_x','r_y','r_x0'].forEach(i=>$(i).addEventListener('input',runR));
+
+/* ---------- Proporciones ---------- */
+const wil=(x,n,z)=>{const p=x/n,z2=z*z,d=1+z2/n,m=(p+z2/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z2/(4*n*n))/d;return[m-h,m+h];};
+const qb=(p,a,b)=>{let lo=0,hi=1;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(betainc(m,a,b)<p)lo=m;else hi=m;}return(lo+hi)/2;};
+const cp=(x,n,al)=>[x===0?0:qb(al/2,x,n-x+1),x===n?1:qb(1-al/2,x+1,n-x)];
+function runP(){
+  const x1=+$('p_x1').value,n1=+$('p_n1').value,x2=+$('p_x2').value,n2=+$('p_n2').value,c=conf(),o=$('p_o'),lv=lvs(c);
+  if(!(n1>=1&&x1>=0&&x1<=n1)){o.innerHTML=bad('Revisa x₁ y n₁ (0 ≤ x ≤ n).');return;}
+  const p1=x1/n1,rows=lv.map(l=>{const z=zc(l),se=Math.sqrt(p1*(1-p1)/n1),nn=n1+z*z,pt=(x1+z*z/2)/nn,h=z*Math.sqrt(pt*(1-pt)/nn);
+    return[lb(l,c),iv([p1-z*se,p1+z*se]),iv(wil(x1,n1,z)),iv([pt-h,pt+h]),iv(cp(x1,n1,1-l/100))];});
+  let h=C([['p̂₁ = x₁/n₁',fmt(p1,6)],['n₁',n1]])+H('IC para una proporción')+T(['Nivel','Wald','Wilson','Agresti-Coull','Clopper-Pearson'],rows)+note('Wald es el método de los libros, pero falla con n pequeño o p cerca de 0 ó 1. Wilson y Agresti-Coull son mejores en general; Clopper-Pearson es exacto y conservador (garantiza al menos la cobertura nominal).');
+  if(n2>=1&&x2>=0&&x2<=n2){
+    const p2=x2/n2,d=p1-p2,r2=lv.map(l=>{const z=zc(l),a=wil(x1,n1,z),b=wil(x2,n2,z),se=Math.sqrt(p1*(1-p1)/n1+p2*(1-p2)/n2);
+      const nw=[d-Math.sqrt((p1-a[0])**2+(b[1]-p2)**2),d+Math.sqrt((a[1]-p1)**2+(p2-b[0])**2)];
+      let rr='—',or='—';if(x1>0&&x2>0){const s1=Math.sqrt(1/x1-1/n1+1/x2-1/n2),s2=Math.sqrt(1/x1+1/(n1-x1)+1/x2+1/(n2-x2)),lr=Math.log(p1/p2),lo=Math.log((x1/(n1-x1))/(x2/(n2-x2)));rr=iv([Math.exp(lr-z*s1),Math.exp(lr+z*s1)]);or=(x1<n1&&x2<n2)?iv([Math.exp(lo-z*s2),Math.exp(lo+z*s2)]):'—';}
+      return[lb(l,c),iv([d-z*se,d+z*se]),iv(nw),rr,or];});
+    h+=H('Comparación de dos proporciones')+C([['p̂₁ − p̂₂',fmt(d,6)],['riesgo relativo',p2>0?fmt(p1/p2,4):'—'],['razón de momios (OR)',(x1<n1&&x2>0&&x2<n2&&x1>0)?fmt((x1/(n1-x1))/(x2/(n2-x2)),4):'—']])+
+      T(['Nivel','Dif. (Wald)','Dif. (Newcombe)','Riesgo relativo','Odds ratio'],r2)+note('Para la diferencia, si el intervalo no contiene 0 hay diferencia significativa. Para RR y OR, el valor nulo es 1. Newcombe es más fiable que Wald con muestras pequeñas.');
+  }
+  o.innerHTML=h;
+}
+['p_x1','p_n1','p_x2','p_n2'].forEach(i=>$(i).addEventListener('input',runP));
+
+/* ---------- Práctica ---------- */
+let ex=null,ok=0,tot=0;
+const pick=a=>a[Math.floor(Math.random()*a.length)],rnd=(a,b)=>a+Math.random()*(b-a),ri=(a,b)=>Math.floor(rnd(a,b+1)),r2=v=>Math.round(v*100)/100;
+const CT=[['el contenido de bolsas de café','g'],['el tiempo de espera en una EPS','min'],['la glucosa en ayunas de pacientes','mg/dL'],['la vida útil de una batería','h'],['la estatura de estudiantes','cm']];
+function nuevo(){
+  const ty=$('q_t').value,l=pick(LV),cx=pick(CT);let e={ty};
+  if(ty==='ic'){const n=ri(8,35),xb=r2(rnd(20,200)),s=r2(xb*rnd(.04,.15)),df=n-1,t=tc(l,df),se=s/Math.sqrt(n),E=t*se;
+    e.ans=[xb-E,xb+E];e.q=`Se midió ${cx[0]} en una muestra de <b>n = ${n}</b>, con <b>x̄ = ${xb}</b> ${cx[1]} y <b>s = ${s}</b>. Construye el IC del <b>${l} %</b> para μ (σ desconocida).`;
+    e.sol=[`df = n − 1 = ${df}`,`t* (${l} %, df = ${df}) = ${fmt(t,4)}`,`EE = s/√n = ${s}/√${n} = ${fmt(se,4)}`,`E = t*·EE = ${fmt(E,4)}`,`IC = x̄ ± E = [ ${fmt(xb-E,4)} ; ${fmt(xb+E,4)} ]`];}
+  else if(ty==='n'){const s=r2(rnd(2,30)),E=r2(s*rnd(.1,.35)),z=zc(l),n=Math.ceil((z*s/E)**2);
+    e.ans=[n];e.q=`Se quiere estimar ${cx[0]} con σ ≈ <b>${s}</b> ${cx[1]}, confianza <b>${l} %</b> y margen de error <b>E = ${E}</b>. ¿Tamaño mínimo de muestra? (usa z)`;
+    e.sol=[`z* = ${fmt(z,4)}`,`n = (z*·σ/E)² = (${fmt(z,4)}·${s}/${E})² = ${fmt((z*s/E)**2,4)}`,`Se redondea siempre hacia arriba: n = ${n}`];}
+  else{const n=ri(80,400),x=Math.round(n*rnd(.2,.8)),p=x/n,z=zc(l),se=Math.sqrt(p*(1-p)/n),E=z*se;
+    e.ans=[p-E,p+E];e.q=`En una encuesta, <b>${x}</b> de <b>${n}</b> personas respondieron «sí». Halla el IC del <b>${l} %</b> para la proporción (método de Wald, 4 decimales).`;
+    e.sol=[`p̂ = ${x}/${n} = ${fmt(p,4)}`,`z* = ${fmt(z,4)}`,`EE = √(p̂(1−p̂)/n) = ${fmt(se,4)}`,`E = z*·EE = ${fmt(E,4)}`,`IC = [ ${fmt(p-E,4)} ; ${fmt(p+E,4)} ]`];}
+  ex=e;$('q_q').innerHTML=e.q;$('q_a').value='';$('q_b').value='';$('q_f').innerHTML='';
+  $('q_bw').style.display=ty==='n'?'none':'block';$('q_la').textContent=ty==='n'?'Tamaño de muestra n':'Límite inferior';
+}
+const solu=()=>`<div class="steps" style="padding:8px 16px">${ex.sol.map((s,i)=>`<div class="step-line"><b>${i+1}.</b> ${s}</div>`).join('')}</div>`;
+$('q_new').onclick=nuevo;$('q_t').addEventListener('change',nuevo);
+$('q_s').onclick=()=>{if(ex)$('q_f').innerHTML=solu();};
+$('q_v').onclick=()=>{if(!ex)return;const a=num($('q_a').value),b=num($('q_b').value),A=ex.ans;
+  if(isNaN(a)||(ex.ty!=='n'&&isNaN(b))){$('q_f').innerHTML=bad('Escribe tu respuesta (puedes usar coma o punto decimal).');return;}
+  const tol=ex.ty==='ic'?Math.max(.01,.002*Math.abs(A[0])):.005,good=ex.ty==='n'?a===A[0]:(Math.abs(a-A[0])<=tol&&Math.abs(b-A[1])<=tol);
+  tot++;if(good)ok++;$('q_sc').textContent=`Aciertos: ${ok} / ${tot}`;
+  $('q_f').innerHTML=good?note('<b>¡Correcto!</b> ✓'):bad('Todavía no coincide. Revisa el procedimiento o pulsa «Ver solución».');};
+
+/* ---------- Guía y glosario ---------- */
+const GD=[
+['Estimar una media, σ desconocida (lo más común)','Usa el <b>IC t de Student</b> con df = n−1. Pestañas: «Calculadora de IC» (σ desconocida) o «IC t · 80–95 %».'],
+['Estimar una media, σ conocida','Usa el <b>IC z</b>. Pestaña «Calculadora de IC» → Media, σ conocida. Es raro en la práctica.'],
+['Estimar un porcentaje o proporción','Usa <b>Wilson</b> (o Clopper-Pearson si n es pequeño). Pestaña «Proporciones».'],
+['Comparar dos grupos independientes','<b>IC t de Welch</b> para la diferencia de medias. Pestaña «Dos muestras». Si el IC no contiene 0, hay diferencia.'],
+['Comparar antes y después en los mismos sujetos','<b>IC t pareado</b>: se trabaja con las diferencias. Pestaña «Dos muestras» → Pareadas.'],
+['Comparar tres o más grupos','<b>ANOVA</b>. Pestaña «Pruebas de hipótesis» → ANOVA de un factor.'],
+['Ver si dos variables están relacionadas','<b>Regresión y correlación</b>: IC de la pendiente y de r. Pestaña «Regresión y correlación».'],
+['Saber cuántos datos recolectar','Pestaña «Muestra y potencia» (media, con t iterativo) o «Tamaño de muestra» (proporción).'],
+['Mi muestra es pequeña o no parece normal','Compara con el <b>Bootstrap</b> y revisa Jarque-Bera y atípicos en «IC t · 80–95 %». Si difieren mucho, el IC t no es fiable.'],
+['Probar una hipótesis (¿μ = μ₀?)','Pestaña «Pruebas de hipótesis». Equivalencia: si μ₀ cae fuera del IC de confianza 1−α, se rechaza H₀ con significancia α.'],
+['Entender qué significa el 95 %','Pestaña «Simulación de cobertura»: verás que ~95 % de los intervalos contienen a μ.'],
+['Practicar para un examen','Pestaña «Práctica»: ejercicios aleatorios con verificación y solución paso a paso.']];
+const GL=[
+['¿Qué es un intervalo de confianza?','Un rango calculado de la muestra que, con el procedimiento repetido muchas veces, contiene al parámetro verdadero en la proporción indicada (el nivel de confianza).'],
+['¿Por qué t y no z?','Porque σ se estima con s, lo que añade incertidumbre. La t tiene colas más pesadas; con df grande se parece a z.'],
+['¿Qué son los grados de libertad?','Datos que pueden variar libremente tras estimar parámetros. En una media: n−1; en regresión simple: n−2; en Welch se aproxima con la fórmula de Satterthwaite.'],
+['¿Más confianza = mejor?','No siempre: sube la confianza pero el intervalo se ensancha y pierde precisión. 90–95 % es lo habitual; 80 % se usa en exploración.'],
+['¿Cómo reduzco el margen de error?','Aumentando n (E ∝ 1/√n), bajando la variabilidad s o reduciendo el nivel de confianza.'],
+['Error común','Decir «hay 95 % de probabilidad de que μ esté en este intervalo». Correcto: el método captura μ el 95 % de las veces.'],
+['Supuestos del IC t','Muestra aleatoria e independiente; población aproximadamente normal (o n grande por el Teorema Central del Límite, n ≳ 30).'],
+['Error tipo I y II; potencia','Tipo I = rechazar H₀ siendo cierta (probabilidad α). Tipo II = no rechazarla siendo falsa (β). Potencia = 1−β.'],
+['Fórmulas clave','Media: x̄ ± t*·s/√n. Proporción (Wald): p̂ ± z*·√(p̂(1−p̂)/n). Tamaño: n = (z*·σ/E)². Diferencia (Welch): (x̄₁−x̄₂) ± t*·√(s₁²/n₁+s₂²/n₂).']];
+$('g_sel').innerHTML='<option value="">— Elige tu situación —</option>'+GD.map((g,i)=>`<option value="${i}">${g[0]}</option>`).join('');
+$('g_sel').addEventListener('change',e=>{$('g_a').innerHTML=e.target.value===''?'':note(GD[e.target.value][1]);});
+$('g_l').innerHTML=GL.map(g=>`<details class="steps" style="margin-bottom:6px"><summary>${g[0]}</summary><div class="step-line" style="border:none">${g[1]}</div></details>`).join('');
+
+/* ---------- activación ---------- */
+const R={ss:runS,reg:runR,pp:runP,pr:()=>{if(!ex)nuevo();},gd:()=>{}},DL=['ss','reg','pp'];
+tabbar.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&R[b.dataset.tab])R[b.dataset.tab]();});
+const re=()=>{const a=document.querySelector('#tabbar button.active');if(a&&DL.includes(a.dataset.tab))R[a.dataset.tab]();};
+$('confSlider').addEventListener('input',re);document.querySelectorAll('.presets button').forEach(b=>b.addEventListener('click',re));
+$('precSwitch').addEventListener('click',()=>setTimeout(re,0));
+})();
+</script>
+
+<script>
+/* ===== MODE INTELLIGENT v2 · motor ===== */
+(function(){
+'use strict';
+const F=(v,d)=>fmt(v,d);
+
+/* ---------- 0. precisión numérica real (reemplaza aproximaciones de la página) ---------- */
+window.erf=function(x){const s=x<0?-1:1;x=Math.abs(x);return x===0?0:s*gammaIncLower(x*x,0.5);};
+window.betacf=function(x,a,b){
+  const MAXIT=1000,EPS=1e-14,FPMIN=1e-300;
+  const qab=a+b,qap=a+1,qam=a-1;let c=1,d=1-qab*x/qap;
+  if(Math.abs(d)<FPMIN)d=FPMIN;d=1/d;let h=d;
+  for(let m=1;m<=MAXIT;m++){const m2=2*m;
+    let aa=m*(b-m)*x/((qam+m2)*(a+m2));
+    d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;h*=d*c;
+    aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));
+    d=1+aa*d;if(Math.abs(d)<FPMIN)d=FPMIN;c=1+aa/c;if(Math.abs(c)<FPMIN)c=FPMIN;d=1/d;
+    const del=d*c;h*=del;if(Math.abs(del-1)<EPS)break;}
+  return h;
+};
+
+/* ---------- 1. utilidades ---------- */
+const NUM=/(-?\d+(?:\.\d+)?)/.source, NUMP=/(-?\d+(?:\.\d+)?)\s*(%)?/.source;
+const GAPS=/(?:\s*(?:[:=]|\b(?:de|del|es|fue|fueron|son|igual|a|con|una|un|la|el|los|las|muestral|observad[oa]|aleatoria|estandar|tipica|poblacional|se|sabe|que|cuya|cuyo|vale|resulta|obtuvo|obtuvieron|encontro|era|sea|tiene|tienen)\b))*\s*/.source;
+const SUBS='₀₁₂₃₄₅₆₇₈₉';
+const U={cero:0,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29};
+const TN={treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90};
+const HN={cien:100,ciento:100,doscientos:200,trescientos:300,cuatrocientos:400,quinientos:500,seiscientos:600,setecientos:700,ochocientos:800,novecientos:900,mil:1000};
+const WORDRE=new RegExp('(?<![a-z])(?:('+Object.keys(HN).join('|')+')(?:\\s+(?:('+Object.keys(TN).join('|')+')(?:\\s+y\\s+('+Object.keys(U).join('|')+'))?|('+Object.keys(U).join('|')+')))?|('+Object.keys(TN).join('|')+')(?:\\s+y\\s+('+Object.keys(U).join('|')+'))?|('+Object.keys(U).join('|')+'))(?![a-z])','g');
+
+function parseNums(s){
+  s=String(s).trim().replace(/[\.\s]+$/,'');if(!s)return null;
+  let parts;
+  if(/;/.test(s))parts=s.split(';').map(x=>x.trim().replace(',','.'));
+  else if(/,\s/.test(s))parts=s.split(/,\s+/).map(x=>x.trim());
+  else if(/^[\d.\-+,]+$/.test(s)&&/,/.test(s))parts=s.split(',');
+  else parts=s.split(/\s+/).map(x=>x.replace(',','.'));
+  const v=parts.map(x=>x.replace(/^,+|,+$/g,'')).filter(x=>x!=='');
+  if(!v.length||!v.every(x=>/^-?\d+(?:\.\d+)?$/.test(x)))return null;
+  return v.map(Number);
+}
+function extractLists(raw){
+  raw=String(raw||'').replace(/[\u2212\u2013\u2014]/g,'-').replace(/\u00a0/g,' ').replace(/\r/g,'');
+  const lists=[],keep=[];
+  const rows=raw.split('\n').map(line=>{let lab='',body=line;const m=line.match(/^([^:=\d\n][^:=\n]{0,50}?)\s*[:=]\s*(.*)$/);if(m){lab=m[1].trim();body=m[2];}const v=parseNums(body);return{line,lab,v:v&&v.length>=2?v:null,m:!!m};});
+  rows.forEach((r,i)=>{
+    const nb=(rows[i-1]&&rows[i-1].v&&!rows[i-1].m)||(rows[i+1]&&rows[i+1].v&&!rows[i+1].m);
+    if(r.v&&(r.m||r.v.length>=3||nb)){lists.push({label:r.lab.toLowerCase(),vals:r.v});keep.push((r.lab?r.lab+' ':'')+' [lista] ');return;}
+    let l=r.line;
+    l=l.replace(/(-?\d+(?:[.,]\d+)?(?:\s*;\s*-?\d+(?:[.,]\d+)?){2,})/g,(all,_g,off)=>{const v2=parseNums(all);if(!v2||v2.length<3)return all;lists.push({label:r.line.slice(Math.max(0,off-30),off).toLowerCase(),vals:v2});return ' [lista] ';});
+    l=l.replace(/(-?\d+(?:\.\d+)?(?:\s*[,;]\s+-?\d+(?:\.\d+)?){3,})/g,(all,_g,off)=>{
+      const v2=parseNums(all);if(!v2||v2.length<4)return all;
+      lists.push({label:r.line.slice(Math.max(0,off-30),off).toLowerCase(),vals:v2});return ' [lista] ';});
+    keep.push(l);
+  });
+  return{rest:keep.join('\n'),lists};
+}
+const KW='desviacion confianza significancia varianza promedio muestra hipotesis proporcion probabilidad frecuencias observadas esperadas correlacion regresion intervalo margen estandar poblacion poblacional estudiantes personas pacientes diferencia independencia contingencia distribucion normalmente resultados grados libertad critico tamano defectuosas defectuosos encuesta encuestados antes despues'.split(' '),KWSET=new Set(KW);
+function lev(a,b,max){if(Math.abs(a.length-b.length)>max)return max+1;let p=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){const c=[i];let mn=i;for(let j=1;j<=b.length;j++){c[j]=Math.min(p[j]+1,c[j-1]+1,p[j-1]+(a[i-1]===b[j-1]?0:1));if(c[j]<mn)mn=c[j];}if(mn>max)return max+1;p=c;}return p[b.length];}
+function fuzzy(t){return t.replace(/[a-z0-9]{6,}/g,w=>{if(/^\d+$/.test(w)||KWSET.has(w))return w;if((w.match(/[a-z]/g)||[]).length<4)return w;
+  const wl=w.replace(/0/g,'o').replace(/1/g,'l').replace(/3/g,'e').replace(/4/g,'a').replace(/5/g,'s').replace(/6/g,'o').replace(/8/g,'b'),lim=wl.length>=9?2:1;let best=null,bd=9;
+  for(const k of KW){if(k[0]!==wl[0])continue;const d=lev(wl,k,lim);if(d<bd){bd=d;best=k;}}return best&&bd<=lim?best:w;});}
+function fixOcr(x){return String(x||'').replace(/[°º]\s*\/\s*[oO0]/g,'%').replace(/(?<=\d)\s*[oO]\s*\/\s*[oO]/g,'%').replace(/(?<=\d)[Oo](?=\d|[\s.,;:)%]|$)/g,'0').replace(/(?<=\d)[lI|](?=\d)/g,'1').replace(/(^|[\s(=])[lI|](?=\d)/g,'$11').replace(/(\d)\s+([.,])\s*(\d)/g,'$1$2$3').replace(/[\u2018\u2019]/g,"'").replace(/[ \t]+/g,' ').trim();}
+function prep(raw){
+  let t=String(raw||'').replace(/[−–—]/g,'-').replace(/ /g,' ');
+  const sd=c=>SUBS.indexOf(c)>=0?String(SUBS.indexOf(c)):'';
+  t=t.replace(/[xX][̄̅¯ˉ]\s?[₀-₉]?/g,' media ').replace(/x[\s-]?barra/gi,' media ').replace(/\bxbar\b/gi,' media ');
+  t=t.replace(/p[̂ˆ]|p̂/g,' phat ');
+  t=t.replace(/h\s*[₀0]\s*:\s*μ\s*[=≥≤<>]?/gi,' mu0 = ').replace(/μ\s*[₀0]\s*[=:]?/g,' mu0 = ').replace(/μ/g,' mu ');
+  t=t.replace(/σ\s*[²2]|sigma\s*[²2]/gi,' varianzapob ').replace(/σ\s*[₀-₉]?/g,' sigma ');
+  t=t.replace(/(^|[^a-zA-Z])s\s*[²2]\s*(?=[=:])/g,'$1 varianza ').replace(/(^|[^a-zA-Z])s\s*[₁₂]?\s*(?=[=:])/g,'$1 desviacion ');
+  t=t.replace(/(^|[^a-zA-Z])n\s*[₁₂]\s*(?==)/g,'$1 n ').replace(/(^|[^a-zA-Z])p\s*[₀0]\s*(?=[=:])/g,'$1 p0 ');
+  t=t.replace(/[₀-₉]/g,sd).replace(/α|alpha/gi,' alfa ').replace(/χ\s*[²2]?/g,' chi ');
+  t=t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  t=fuzzy(t);
+  t=t.replace(/por\s+ciento/g,'%').replace(/[±]/g,' ');
+  t=t.replace(/\b(?:dispersion|desvio|variabilidad)\b/g,' desviacion ').replace(/\bdesv\.?\s*est(?:andar)?\.?/g,' desviacion ');
+  t=t.replace(/(\d+(?:\.\d+)?)\s*%\s*de\s*(?:seguridad|certeza|fiabilidad|credibilidad)/g,'$1 % de confianza').replace(/(?:seguridad|certeza|fiabilidad|credibilidad)\s*(?:de|del|al)?\s*(\d+(?:\.\d+)?\s*%?)/g,'confianza de $1').replace(/\b(?:nivel\s+de\s+riesgo|riesgo)\s*(?:de|del|al)?\s*(\d)/g,'significancia de $1');
+  t=t.replace(/(^|\s)x\s*[¯‾_-]\s*(?=[=:])/g,'$1 media ');
+  t=t.replace(/desviacion\s*(?:estandar|tipica)?\s*(?:poblacional|de\s+la\s+poblacion|verdadera)/g,' sigma ').replace(/(?:poblacion|poblacional)[^.]{0,30}?desviacion\s*(?:estandar|tipica)?/g,' sigma ');
+  t=t.replace(/varianza\s*(?:poblacional|de\s+la\s+poblacion)/g,' varianzapob ');
+  t=t.replace(/desviacion\s*(?:estandar|tipica)?(?:\s*muestral)?/g,' desviacion ').replace(/varianza\s*(?:muestral)?/g,' varianza ');
+  t=t.replace(/\bmedi[oa]s?(?:\s+(?:muestral|aritmetic[oa]))?\b|\bpromedios?\b|\bmean\b/g,' media ');
+  t=t.replace(WORDRE,(m,h,t1,u1,u2,t2,u3,u4)=>{
+    if(h)return String(HN[h]+(t1?TN[t1]+(u1?U[u1]:0):0)+(u2?U[u2]:0));
+    if(t2)return String(TN[t2]+(u3?U[u3]:0));return String(U[u4]);});
+  t=t.replace(/\b(\d+(?:,\d+){2,})\b/g,m=>m.replace(/,/g,' ')).replace(/(\d),(\d)/g,'$1.$2');
+  return t;
+}
+function grab(T,label,filter){
+  const re=new RegExp('(?:'+(label.source||label)+')'+GAPS+NUMP,'g');
+  return [...T.matchAll(re)].map(m=>({v:parseFloat(m[1]),pct:!!m[2],i:m.index,e:m.index+m[0].length})).filter(x=>!filter||filter(x));
+}
+const pad=(a,i)=>a&&a[i]!==undefined?a[i]:'';
+
+/* ---------- 2. extracción de entidades ---------- */
+function extract(raw){
+  const {rest,lists}=extractLists(raw);
+  const T=prep(rest),e={T,lists,ns:[],xbs:[],ss:[],sigmas:[],vars:[],varpob:[],xn:[],pcts:[]};
+  /* confianza / alfa */
+  let m;
+  const cf=[[new RegExp(NUM+'\\s*%?\\s*(?:de\\s+)?(?:nivel\\s+de\\s+)?confianza'),1],[new RegExp('confianza\\s*(?:del?|al|=|:)?\\s*'+NUM+'\\s*%?'),1],[new RegExp('(?:\\bic\\b|intervalo(?:\\s+de\\s+confianza)?)\\s*(?:del?|al|=|:)?\\s*'+NUM+'\\s*%'),1]];
+  for(const [re,g] of cf){m=T.match(re);if(m){let c=parseFloat(m[g]);if(c<=1)c*=100;if(c>0&&c<100){e.conf=c;e.confSrc='texto';break;}}}
+  m=T.match(new RegExp('(?:significancia|alfa)\\s*(?:de|del|=|:)?\\s*'+NUM+'\\s*(%)?'));
+  if(m){let a=parseFloat(m[1]);if(m[2]||a>1)a/=100;if(a>0&&a<1){e.alpha=a;}}
+  if(e.alpha===undefined&&e.conf!==undefined)e.alpha=1-e.conf/100;
+  if(e.conf===undefined&&e.alpha!==undefined){e.conf=+((1-e.alpha)*100).toFixed(6);e.confSrc='alfa';}
+  if(e.conf===undefined){e.conf=95;e.alpha=0.05;e.confSrc='defecto';}
+  /* afirmación (μ0 / p0) */
+  const claimRe=new RegExp('(?:afirma|asegura|sostiene|garantiza|promete|pretende|alega|declara|especifica|dice|indica|cree|supone|sospecha|anuncia|publicita)\\s+que[^0-9]{0,90}?'+NUMP+'|(?:probar|contrastar|verificar|determinar|decidir|averiguar|comprobar)\\s+si[^0-9]{0,70}?(?:es|sea|igual|mayor|menor|superior|inferior|distinta?|diferente)(?:\\s+(?:a|que|de|del))*\\s*'+NUMP+'|mu0\\s*[=:]\\s*'+NUMP,'g');
+  const claims=[...T.matchAll(claimRe)].map(c=>{const v=c[1]!==undefined?c[1]:c[3]!==undefined?c[3]:c[5];const pc=c[1]!==undefined?c[2]:c[3]!==undefined?c[4]:c[6];return{v:parseFloat(v),pct:!!pc,s:c.index,e:c.index+c[0].length};});
+  if(!claims.length&&/hipotesis|significancia|\balfa\b|rechaz|evidencia|pruebe|contraste|contrastar|probar\s+si|prueba\s+(?:de|t|z)/.test(T)&&!/probabilidad|percentil|\bp\s*\(/.test(T)){const cm=T.match(new RegExp('(?:difiere|diferente|distint[oa]|igual|mayor|menor|superior|inferior|supera|excede)(?:\\s+(?:de|a|que|del|los|las))*\\s*'+NUMP));if(cm&&!/margen\s+de\s+error|error\s+maximo/.test(T.slice(Math.max(0,cm.index-25),cm.index)))claims.push({v:parseFloat(cm[1]),pct:!!cm[2],s:cm.index,e:cm.index+cm[0].length});}
+  e.claims=claims;const inClaim=x=>claims.some(c=>x.i>=c.s&&x.i<=c.e);
+  if(claims.length){const c=claims[0];if(c.pct)e.p0=c.v/100;else{e.mu0=c.v;if(c.v>0&&c.v<1&&/proporcion|porcentaje|%/.test(T))e.p0=c.v;}}
+  const mu0g=grab(T,/\bmu0\b/);if(mu0g.length&&e.mu0===undefined)e.mu0=mu0g[0].v;
+  const p0g=grab(T,/\bp0\b/);if(p0g.length){e.p0=p0g[0].pct||p0g[0].v>1?p0g[0].v/100:p0g[0].v;}
+  /* x de n */
+  const claimed=new Set();
+  for(const q of T.matchAll(/(\d+)\s+de\s+(?:los\s+|las\s+|un\s+total\s+de\s+|cada\s+|entre\s+)*(\d+)/g)){
+    e.xn.push([+q[1],+q[2],q.index]);e.ns.push({v:+q[2],i:q.index+q[0].length-q[2].length});claimed.add(q.index+q[0].length-q[2].length);}
+  const nre=[[/(?<![a-z])n\s*[=:]\s*(\d+)/g,'end'],[/muestras?\s+(?:aleatoria\s+|simple\s+)?(?:de|con|=)\s*(\d+)/g,'end'],[/tamano\s+(?:de\s+(?:la\s+)?muestra\s+)?(?:de|=|:)?\s*(\d+)/g,'end'],
+    [/(?:midio|midieron|registro|registraron|tomaron|selecciono|seleccionaron|observo|observaron|analizo|analizaron|examino|examinaron|encuesto\s+a|entrevisto\s+a|pesaron|probaron|inspecciono|inspeccionaron)\s+(?:a\s+|un\s+total\s+de\s+)?(\d+)(?!\d|\.\d|\s*(?:horas|minutos|segundos|dias|semanas|meses|anos|kilos|gramos|litros|metros|puntos|dolares|pesos|%))/g,'end'],
+    [/(\d+)\s+(?:veces|repeticiones|intentos|lanzamientos|tiradas|estudiantes|alumnos|personas|pacientes|piezas|datos|observaciones|bolsas|articulos|unidades|individuos|casos|ninos|empleados|clientes|encuestados|mujeres|hombres|adultos|jovenes|familias|hogares|votantes|trabajadores|obreros|ratones|plantas|tubos|lotes|cajas|muestras|mediciones|medidas|lecturas|sujetos|participantes|elementos|productos|baterias|focos|bombillas|llantas|botellas|latas|paquetes|autos|carros|vehiculos|animales|arboles|semillas|pruebas|ensayos|ciudades|escuelas|colegios|maquinas|clases|docentes|profesores|medicos|enfermeros|atletas|jugadores|empresas|tiendas)\b/g,'start']];
+  nre.forEach(([re,w])=>{for(const q of T.matchAll(re)){const pos=w==='end'?q.index+q[0].length-q[1].length:q.index;if(claimed.has(pos))continue;claimed.add(pos);e.ns.push({v:+q[1],i:pos});}});
+  e.ns.sort((a,b)=>a.i-b.i);e.ns=e.ns.map(x=>x.v);
+  if(!e.ns.length){const q=T.match(/\b(?:de|a|con|en|entre|tomaron|midieron|mide|selecciono|eligio)\s+(\d{1,6})\s+(?!(?:horas|minutos|segundos|dias|kilos|gramos|litros|metros|centimetros|grados|puntos|dolares|pesos|anos|meses|semanas|ml|mg|veces|kg|cm|mm|por)\b)[a-z]{4,}s\b/);if(q&&+q[1]>=2)e.ns.push(+q[1]);}
+  /* éxitos sueltos */
+  if(!e.xn.length){
+    const xs=[...T.matchAll(/(?<![a-z])x\s*[=:]\s*(\d+)|(\d+)\s+(?:lo\s+|la\s+|le\s+|los\s+|las\s+|se\s+|son\s+|fueron\s+|estan\s+|eran\s+)?(?:de\s+ellos|de\s+ellas|prefier\w+|aprueb\w+|apoy\w+|votaron|respondier\w+|dijeron|contestaron|afirmaron|declararon|respondieron|consideran|piensan|creen|eligieron|compraron|mostraron|presentan|resultaron|tienen|fallaron|defectuos\w+|exitos?|aciertos?|acertaron|fuman|compran|usan|favor)/g)];
+    if(xs.length&&e.ns.length){const x=+(xs[0][1]||xs[0][2]);if(x<=e.ns[0]||e.ns.length>1)e.xn.push([x,e.ns.find(v=>v>=x)||e.ns[0],xs[0].index]);}
+  }
+  if(!e.xn.length&&e.ns.length===1&&/proporcion|porcentaje|satisfech|prefier|apoy|aprueb|defectuos|\bp0\b|caras|exito|fumador|votantes/.test(T)){const c0=[...T.matchAll(/(?<![\d.])(\d+)(?!\.\d|\d|\s*%)/g)].map(q=>+q[1]).filter(v=>v<e.ns[0]&&v>0);const nonconf=c0.filter(v=>!new RegExp('(?:confianza|alfa|significancia|grados\\s+de\\s+libertad)[^0-9]{0,15}'+v+'(?!\\d)').test(T));if(nonconf.length)e.xn.push([nonconf[0],e.ns[0],0]);}
+  /* medias, desviaciones, sigma, varianzas */
+  e.xbs=grab(T,/\bmedia\b/,x=>!inClaim(x)).map(x=>x.v);
+  if(!e.xbs.length){const lax=[...T.matchAll(new RegExp('\\bmedia(?:\\s+[a-z]+){1,4}?\\s+(?:de|es|fue|=|:)\\s*'+NUM,'g'))].filter(q=>!inClaim({i:q.index})).map(q=>parseFloat(q[1]));if(lax.length)e.xbs=lax;}
+  let sd=grab(T,/\bdesviacion\b/).map(x=>x.v);e.sigmas=grab(T,/\bsigma\b/).map(x=>x.v);
+  e.varpob=grab(T,/\bvarianzapob\b/).map(x=>x.v);e.vars=grab(T,/\bvarianza\b/).map(x=>x.v);
+  e.mus=[...T.matchAll(new RegExp('\\bmu\\s*=\\s*'+NUM,'g'))].map(q=>parseFloat(q[1]));
+  const knownTxt=/\bse\s+(?:conoce|sabe)\b|(?<!des)\bconocid[ao]\b|\bsabe\s+que\b/.test(T)&&!/desconocid|no\s+se\s+(?:conoce|sabe)/.test(T);
+  e.sigmaKnown=e.sigmas.length>0||e.varpob.length>0||knownTxt;e.sigmaUnknown=/desconocid|no\s+se\s+(?:conoce|sabe)|se\s+desconoce/.test(T);
+  if(!e.sigmas.length&&e.varpob.length)e.sigmas=e.varpob.map(Math.sqrt);
+  if(!e.sigmas.length&&knownTxt&&sd.length&&e.ns.length<2){e.sigmas=sd.slice(0,1);sd=sd.slice(1);}
+  e.ss=sd.slice();if(!e.ss.length&&e.vars.length)e.ss=e.vars.map(Math.sqrt);
+  /* margen de error */
+  const eg=grab(T,/margen\s+de\s+error|error\s+maximo|error\s+admisible|error\s+permitido|error(?!\s+estandar|\s+tipo)|precision|(?<![a-z])e(?![a-z])\s*(?==|:)/);
+  if(eg.length){e.E=eg[0].pct?eg[0].v/100:eg[0].v;e.Epct=eg[0].pct;}
+  /* porcentajes de muestra */
+  for(const q of T.matchAll(/(-?\d+(?:\.\d+)?)\s*%/g)){
+    const l=T.slice(Math.max(0,q.index-28),q.index),r=T.slice(q.index+q[0].length,q.index+q[0].length+26);
+    if(/(confianza|significancia|error|alfa|nivel|intervalo|\bic|precision)\s*(?:de|del|al|=|:)?\s*$/.test(l)||/^\s*(?:de\s+)?(?:nivel\s+de\s+)?(?:confianza|significancia)/.test(r))continue;
+    if(claims.some(c=>q.index>=c.s&&q.index<=c.e))continue;e.pcts.push(+q[1]/100);}
+  const pg=grab(T,/\bphat\b|proporcion\s+muestral/);if(pg.length)e.phat=pg[0].pct||pg[0].v>1?pg[0].v/100:pg[0].v;else if(e.pcts.length)e.phat=e.pcts[0];
+  const pn=T.match(/(\d+(?:\.\d+)?)\s*%\s*de\s*(?:los\s+|las\s+)*(\d+)/);if(pn&&!e.xn.length){e.xn.push([Math.round(pn[1]/100*pn[2]),+pn[2],pn.index]);if(!e.ns.length)e.ns.push(+pn[2]);}
+  /* df y t observado */
+  m=T.match(/(\d+)\s*(?:grados\s+de\s+libertad|gl\b|df\b)|(?:df|gl|grados\s+de\s+libertad)\s*(?:=|:|de)?\s*(\d+)/);if(m)e.df=+(m[1]||m[2]);
+  m=T.match(new RegExp('(?<![a-z])t\\s*=\\s*'+NUM));if(m)e.tobs=parseFloat(m[1]);
+  m=T.match(new RegExp('(?<![a-z])z\\s*=\\s*'+NUM));if(m)e.zobs=parseFloat(m[1]);
+  /* normal: a, b, tipo */
+  const zp={tipo:'menor',a:'',b:''};
+  const en=T.match(new RegExp('entre\\s+'+NUM+'\\s+y\\s+'+NUM)),pe=T.match(/percentil\s*(\d+(?:\.\d+)?)/),
+    me=T.match(new RegExp('(?:menos\\s+de|menor\\s+(?:que|a)|<|a\\s+lo\\s+sumo|como\\s+maximo|inferior\\s+a|no\\s+(?:mas|supere)\\s+(?:de|a)?)\\s*'+NUM)),
+    ma=T.match(new RegExp('(?:mas\\s+de|mayor\\s+(?:que|a)|>|al\\s+menos|supera|supere|excede|exceda|superior\\s+a|como\\s+minimo)\\s*'+NUM));
+  if(en){zp.tipo='entre';zp.a=+en[1];zp.b=+en[2];}else if(pe){zp.tipo='perc';zp.a=+pe[1];}else if(ma&&!me){zp.tipo='mayor';zp.a=+ma[1];}else if(me){zp.a=+me[1];}
+  e.zp=zp;
+  /* cola de la hipótesis */
+  const sents=T.split(/(?<=[.?!])\s+|\n/).filter(s=>s.trim());
+  const qs=sents.filter(s=>/\?|evidencia|pruebe|contraste|determine|puede\s+afirmarse|se\s+puede\s+concluir|concluy/.test(s)&&!/(?:afirma|asegura|sostiene|promete)\s+que/.test(s));
+  const dir=s=>{const L=/\b(?:menor|menos|inferior|reduc\w*|disminu\w*|por\s+debajo|baja|decrec\w*|no\s+alcanza|no\s+llega)\b/.test(s),R=/\b(?:mayor|mas\s+de|superior|supera\w*|exced\w*|aument\w*|por\s+encima|increment\w*|sube|mejor)\b/.test(s),D=/\b(?:diferent\w*|distint\w*|cambi\w*|difiere|varia)\b/.test(s);
+    return L&&!R&&!D?'left':R&&!L&&!D?'right':null;};
+  let tail=null;const h1=T.match(/h1\s*:?\s*\w*\s*(<|>|≠|!=)/);if(h1)tail=h1[1]==='>'?'right':h1[1]==='<'?'left':null;
+  if(!tail&&!h1)for(const s of qs.reverse()){tail=dir(s);if(tail)break;}
+  if(!tail&&!qs.some(s=>/\b(?:diferent\w*|distint\w*|cambi\w*|difiere)\b/.test(s))){
+    if(/\bal\s+menos\b|\bcomo\s+minimo\b/.test(T)&&e.claims.length)tail='left';else if(/\ba\s+lo\s+sumo\b|\bcomo\s+maximo\b/.test(T)&&e.claims.length)tail='right';}
+  e.tail=tail||'two';e.tailExplicit=!!tail;
+  return e;
+}
+
+/* ---------- 3. características y clasificación ---------- */
+const FEAT=[
+ ['media','menciona media/promedio',e=>/\bmedia\b/.test(e.T)],
+ ['desv','menciona desviación estándar',e=>/\bdesviacion\b/.test(e.T)],
+ ['sigmaK','σ conocida',e=>e.sigmaKnown],['sigmaU','σ desconocida',e=>e.sigmaUnknown],
+ ['prop','habla de proporciones/porcentajes',e=>/proporcion|porcentaje|encuesta|prefier|votar|votantes|defectuos|satisfech|aprueb|apoy|fumador|exito|fracaso|\bphat\b|%\s*de\s+(?:los|las|la)|\bp\s*[=≈]|\bp0\b/.test(e.T)],
+ ['tam','pregunta por tamaño de muestra',e=>/tamano\s+(?:minimo\s+)?de\s+(?:la\s+)?muestra|cuant[oa]s\s+(?:datos|personas|observaciones|elementos|muestras|individuos|encuestados|sujetos|unidades|pacientes|estudiantes)|n\s+minimo|muestra\s+necesaria|se\s+necesitan?|necesario\s+(?:tomar|encuestar|muestrear)|tamano\s+necesario/.test(e.T)],
+ ['marg','menciona margen de error',e=>/margen\s+de\s+error|error\s+maximo|precision|error\s+admisible|error\s+permitido/.test(e.T)],
+ ['hip','es una prueba de hipótesis',e=>/hipotesis|significancia|\balfa\b|rechaz|prueba\s+(?:de|t|z)|contraste|p-?valor|evidencia|pruebe|contrastar|\bh0\b|\bh1\b|probar\s+si/.test(e.T)],
+ ['afirma','hay una afirmación a contrastar',e=>e.claims.length>0||/afirma|asegura|sostiene|garantiza|promete|pretende|alega|declara|sospecha|supone/.test(e.T)],
+ ['grupos','compara dos grupos',e=>/dos\s+(?:grupos|muestras|metodos|poblaciones|tratamientos|marcas|maquinas|escuelas|farmacos|medicamentos|dietas|secciones)|\b2\s+(?:grupos|muestras)|grupo\s*[ab12]\b|\bcompar|diferencia\s+(?:de|entre)\s+(?:las\s+)?medias|control\s+y|metodo\s+[ab12]\b|hombres\s+y\s+mujeres|tratamiento\s+y|\bvs\.?\b|\b(?:fertilizante|dieta|metodo|marca|tratamiento|maquina|farmaco|medicamento|escuela|turno|proveedor|ciudad|muestra|poblacion)s?\s*[ab12]\b|hay\s+diferencia|diferencia\s+en\s+el/.test(e.T)],
+ ['par','datos pareados',e=>/antes\s+y\s+despues|pareado|emparejad|mismos?\s+(?:sujetos|pacientes|estudiantes|personas|individuos)|pre-?test|post-?test/.test(e.T)||e.lists.some(l=>/antes|despues/.test(l.label))],
+ ['reg','regresión/correlación',e=>/regresion|correlacion|\bpendiente|recta\s+de|relacion\s+(?:lineal\s+)?entre|coeficiente\s+r|ajuste\s+lineal|minimos\s+cuadrados|\bprediga|\bpredecir/.test(e.T)],
+ ['xy','listas X e Y',e=>e.lists.length>=2&&e.lists.some(l=>/^\s*x\b|independiente/.test(l.label))&&e.lists.some(l=>/^\s*y\b|dependiente/.test(l.label))],
+ ['conf','pide intervalo/confianza',e=>/confianza|intervalo|\bic\b|estim/.test(e.T)],
+ ['norm','menciona normalidad / t',e=>/normal|t\s+de\s+student|n\s*<\s*30|muestra\s+pequena/.test(e.T)],
+ ['varIC','intervalo para varianza/σ',e=>/(?:intervalo|\bic\b)[^.]{0,40}\b(?:para|de)\s+la\s+(?:varianza|desviacion)|\b(?:varianza|desviacion)\s+(?:poblacional|de\s+la\s+poblacion)[^.]{0,30}(?:intervalo|\bic\b)|estim\w+[^.]{0,30}(?:varianza|desviacion\s+(?:estandar\s+)?poblacional)|(?:intervalo|\bic\b)[^.]{0,30}\bsigma\b/.test(e.T)],
+ ['chi','chi-cuadrado / independencia',e=>/\bchi\b|independien|contingencia|asociacion\s+entre|tabla\s+cruzada/.test(e.T)],
+ ['gof','bondad de ajuste',e=>/bondad\s+de\s+ajuste|frecuencias?\s+(?:esperadas?|observadas?)|uniform|dado\s+(?:equilibrado|honesto|justo)|se\s+ajusta/.test(e.T)],
+ ['anova','ANOVA / 3+ grupos',e=>/anova|analisis\s+de\s+varianza|tres\s+o\s+mas|\b[3-9]\s+grupos|varios\s+grupos|tres\s+(?:grupos|metodos|marcas|tratamientos|dietas|fertilizantes)|cuatro\s+grupos/.test(e.T)],
+ ['zp','probabilidad / percentil normal',e=>/probabilidad|percentil|\bp\s*\(|puntaje\s+z|puntuacion\s+z|area\s+bajo|distribuid[ao]?\s+normal|cuantil/.test(e.T)],
+ ['tc','valor crítico / p-valor',e=>/valor\s+critico|t\s+critico|z\s+critico|grados\s+de\s+libertad|tabla\s+t|\bt\s*\*/.test(e.T)],
+ ['one','siempre',e=>true],
+ ['muSig','μ y σ dadas (distribución normal)',e=>e.mus.length>0&&e.sigmas.length>0],
+ ['tobs','tiene un t observado',e=>e.tobs!==undefined],
+ ['hasN','tiene tamaño de muestra',e=>e.ns.length>=1],['n2','dos tamaños de muestra',e=>e.ns.length>=2],
+ ['hasXb','tiene una media muestral',e=>e.xbs.length>=1],['m2','dos medias',e=>e.xbs.length>=2],
+ ['hasS','tiene desviación muestral',e=>e.ss.length>=1],['s2','dos desviaciones',e=>e.ss.length>=2],
+ ['hasSigma','tiene σ',e=>e.sigmas.length>=1],['hasE','tiene margen de error',e=>e.E!==undefined],
+ ['xn1','tiene "x de n"',e=>e.xn.length>=1],['xn2','dos "x de n"',e=>e.xn.length>=2],
+ ['mu0','tiene μ₀',e=>e.mu0!==undefined],['p0','tiene p₀',e=>e.p0!==undefined],
+ ['df','tiene grados de libertad',e=>e.df!==undefined],
+ ['L1','una lista de datos',e=>e.lists.length===1],['L2','dos listas de datos',e=>e.lists.length===2],['L3','tres o más listas',e=>e.lists.length>=3],
+ ['matrix','listas de igual longitud (tabla)',e=>e.lists.length>=2&&e.lists.every(l=>l.vals.length===e.lists[0].vals.length)]
+];
+const TOP=[
+ ['ic_t','IC · media (σ desconocida, t de Student)',{media:2,desv:2,sigmaK:-4,sigmaU:3,prop:-2,tam:-4,hip:-2,grupos:-3,par:-3,reg:-3,conf:3,norm:2,n2:-3,varIC:-5,chi:-4,zp:-3,tc:-1,hasXb:1,hasS:1,L1:1,L2:-3,afirma:-2,xn1:-1,gof:-3,anova:-3}],
+ ['ic_z','IC · media (σ conocida, z)',{muSig:-4,media:2,sigmaK:5,sigmaU:-5,hasSigma:2,prop:-2,tam:-4,hip:-2,grupos:-3,par:-3,reg:-3,conf:3,n2:-3,varIC:-3,chi:-4,zp:-3,L2:-3,afirma:-2,gof:-3,anova:-3}],
+ ['ic_p','IC · proporción',{prop:4,xn1:3,tam:-4,hip:-2,conf:3,xn2:-3,chi:-4,zp:-2,media:-3,desv:-3,grupos:-2,reg:-3,afirma:-2,p0:-2}],
+ ['n_med','Tamaño de muestra · media',{tam:6,marg:3,desv:1,hasE:2,prop:-2,hip:-2,conf:1,sigmaK:1}],
+ ['n_prop','Tamaño de muestra · proporción',{tam:6,marg:3,prop:3,hasE:2,hip:-2,conf:1}],
+ ['hip_t','Prueba de hipótesis · media (t)',{tobs:-2,media:1,desv:1,hip:5,afirma:3,mu0:3,hasXb:1,hasS:1,sigmaK:-3,prop:-3,tam:-4,n2:-4,grupos:-3,par:-3,zp:-2,chi:-3,reg:-3,norm:1,xn1:-2,p0:-3,anova:-3}],
+ ['hip_z','Prueba de hipótesis · media (z, σ conocida)',{muSig:-3,media:1,hip:5,afirma:3,mu0:3,sigmaK:4,hasSigma:2,sigmaU:-4,prop:-3,tam:-4,n2:-4,grupos:-3,par:-3,zp:-2,chi:-3,reg:-3,xn1:-2,p0:-3}],
+ ['hip_p','Prueba de hipótesis · proporción (z)',{prop:3,hip:5,afirma:3,p0:3,xn1:2,xn2:-4,media:-3,desv:-2,tam:-4,chi:-3,grupos:-1,mu0:-1}],
+ ['dos_s','Dos medias · datos resumidos (Welch)',{grupos:4,n2:3,m2:2,s2:2,media:1,desv:1,hip:0.5,L2:-4,par:-4,reg:-3,chi:-4,prop:-1,anova:-2,xn2:-2}],
+ ['dos','Dos medias · listas de datos (Welch)',{grupos:3,L2:5,par:-5,reg:-5,chi:-5,anova:-3,L3:-4,xn2:-2,xy:-6,m2:-2}],
+ ['par','Datos pareados · listas',{par:7,L2:4,reg:-3,chi:-3,anova:-3,xy:-5}],
+ ['dos_p','Dos proporciones',{prop:2,xn2:6,grupos:3,hip:1,conf:0.5,chi:-1,media:-2,desv:-2}],
+ ['reg','Regresión y correlación',{reg:8,L2:4,xy:6,media:-1,par:-2,chi:-3}],
+ ['ic_var','IC · varianza / desviación (χ²)',{one:-3,varIC:8,desv:1,conf:2,hasN:1,media:-1,hip:-1,n2:-3}],
+ ['chi_ind','χ² de independencia (tabla)',{one:-4,chi:7,matrix:2,L2:1,hip:1,gof:-3,reg:-2}],
+ ['chi_gof','χ² bondad de ajuste',{gof:6,chi:3,L1:2,L2:-2,matrix:-2,hip:1}],
+ ['anova','ANOVA de un factor',{anova:7,L3:6,grupos:1,L2:-1,hip:1}],
+ ['zp','Probabilidad normal / percentil',{muSig:6,zp:5,media:1,desv:1,hasSigma:1,conf:-3,hip:-3,tam:-4,L1:-1}],
+ ['tc','Valor crítico t / z · p-valor',{tobs:3,tc:6,df:2,conf:1,hip:-1,hasN:0.5,media:-2,desv:-2}]
+];
+const NEED={ic_t:e=>(e.lists.length>=1)||(e.ns.length&&e.xbs.length&&e.ss.length),ic_z:e=>(e.lists.length>=1&&e.sigmas.length)||(e.ns.length&&e.xbs.length&&e.sigmas.length),
+ ic_p:e=>e.xn.length>=1||(e.phat!==undefined&&e.ns.length>=1),n_med:e=>(e.sigmas.length||e.ss.length)&&e.E!==undefined,n_prop:e=>e.E!==undefined,
+ hip_t:e=>e.mu0!==undefined&&((e.lists.length>=1)||(e.ns.length&&e.xbs.length&&e.ss.length)),hip_z:e=>e.mu0!==undefined&&e.sigmas.length&&(e.lists.length>=1||(e.ns.length&&e.xbs.length)),
+ hip_p:e=>e.p0!==undefined&&e.xn.length>=1,dos_s:e=>e.ns.length>=2&&e.xbs.length>=2&&e.ss.length>=2,dos:e=>e.lists.length>=2,par:e=>e.lists.length>=2,
+ dos_p:e=>e.xn.length>=2,reg:e=>e.lists.length>=2,ic_var:e=>e.ns.length&&(e.ss.length||e.lists.length),chi_ind:e=>e.lists.length>=2,chi_gof:e=>e.lists.length>=1,
+ anova:e=>e.lists.length>=3,zp:e=>(e.xbs.length||e.mus.length)&&(e.sigmas.length||e.ss.length),tc:e=>e.df!==undefined||e.ns.length};
+function classify(e){
+  const x={};FEAT.forEach(([k,,f])=>{try{x[k]=f(e)?1:0;}catch(_){x[k]=0;}});
+  const sc=TOP.map(([id,,w])=>{let s=0;for(const k in w)s+=w[k]*(x[k]||0);const ok=NEED[id]?!!NEED[id](e):true;return s+(ok?3:-3);});
+  const m=Math.max(...sc),ex=sc.map(v=>Math.exp((v-m)/1.6)),S=ex.reduce((a,b)=>a+b,0),pr=ex.map(v=>v/S);
+  const ord=pr.map((_,i)=>i).sort((a,b)=>pr[b]-pr[a]);
+  const why=i=>{const w=TOP[i][2];return FEAT.filter(([k])=>x[k]&&w[k]>0).sort((a,b)=>w[b[0]]-w[a[0]]).slice(0,5).map(f=>f[1]);};
+  return{x,sc,pr,ord,top:TOP[ord[0]][0],why};
+}
+
+/* ---------- 4. relleno de campos desde las entidades ---------- */
+const g0=(a,i)=>a&&a[i]!==undefined?a[i]:'';
+function fill(k,e){
+  const L=e.lists,l0=L[0]?L[0].vals:'',l1=L[1]?L[1].vals:'';
+  const base={conf:e.conf,alpha:e.alpha,tail:e.tail};
+  const sx=()=>{let n=g0(e.xn.map(q=>q[1]),0);return n;};
+  switch(k){
+   case 'ic_t':return{n:g0(e.ns,0),xb:g0(e.xbs,0),s:g0(e.ss,0),conf:e.conf,L1:l0};
+   case 'ic_z':return{n:g0(e.ns,0),xb:g0(e.xbs,0),sigma:g0(e.sigmas,0),conf:e.conf,L1:l0};
+   case 'ic_p':{let n=g0(e.xn.map(q=>q[1]),0)||g0(e.ns,0),x=g0(e.xn.map(q=>q[0]),0);if(x===''&&e.phat!==undefined&&n)x=Math.round(e.phat*n);return{x,n,conf:e.conf};}
+   case 'n_med':return{sigma:e.sigmas.length?e.sigmas[0]:g0(e.ss,0),E:e.E===undefined?'':e.E,conf:e.conf};
+   case 'n_prop':return{p:e.phat!==undefined&&!e.xn.length?e.phat:'',E:e.E===undefined?'':(e.E>=1?e.E/100:e.E),conf:e.conf};
+   case 'hip_t':return{n:g0(e.ns,0),xb:g0(e.xbs,0),s:g0(e.ss,0),mu0:e.mu0===undefined?'':e.mu0,alpha:e.alpha,tail:e.tail,L1:l0};
+   case 'hip_z':return{n:g0(e.ns,0),xb:g0(e.xbs,0),sigma:g0(e.sigmas,0),mu0:e.mu0===undefined?'':e.mu0,alpha:e.alpha,tail:e.tail,L1:l0};
+   case 'hip_p':{let x=g0(e.xn.map(q=>q[0]),0),n=g0(e.xn.map(q=>q[1]),0)||g0(e.ns,0);if(x===''&&e.phat!==undefined&&n)x=Math.round(e.phat*n);return{x,n,p0:e.p0===undefined?'':e.p0,alpha:e.alpha,tail:e.tail};}
+   case 'dos_s':return{n1:g0(e.ns,0),x1:g0(e.xbs,0),s1:g0(e.ss,0),n2:g0(e.ns,1),x2:g0(e.xbs,1),s2:g0(e.ss,1),alpha:e.alpha,tail:e.tail};
+   case 'dos':case 'par':return{L1:l0,L2:l1,alpha:e.alpha,tail:e.tail};
+   case 'dos_p':return{x1:g0(e.xn.map(q=>q[0]),0),n1:g0(e.xn.map(q=>q[1]),0),x2:g0(e.xn.map(q=>q[0]),1),n2:g0(e.xn.map(q=>q[1]),1),alpha:e.alpha,tail:e.tail};
+   case 'reg':{let X=L.find(l=>/^\s*x\b|independiente/.test(l.label)),Y=L.find(l=>/^\s*y\b|dependiente/.test(l.label));if(!X||!Y){X=L[0];Y=L[1];}return{L1:X?X.vals:'',L2:Y?Y.vals:'',x0:'',conf:e.conf};}
+   case 'ic_var':{let s=g0(e.ss,0);if(s===''&&l0)s='';return{n:g0(e.ns,0),s,conf:e.conf,L1:l0};}
+   case 'chi_ind':return{M:L.map(l=>l.vals.join(', ')).join('\n'),alpha:e.alpha};
+   case 'chi_gof':return{O:l0,Ex:l1,alpha:e.alpha};
+   case 'anova':return{G:L.map(l=>l.vals.join(', ')).join('\n'),alpha:e.alpha};
+   case 'zp':return{mu:e.mus.length?e.mus[0]:g0(e.xbs,0),sd:e.sigmas.length?e.sigmas[0]:g0(e.ss,0),a:e.zp.a,b:e.zp.b,tipo:e.zp.tipo};
+   case 'tc':return{df:e.df!==undefined?e.df:(e.ns.length?e.ns[0]-1:''),conf:e.conf,tobs:e.tobs===undefined?'':e.tobs};
+  }
+  return base;
+}
+
+/* ---------- 5. campos de cada tema ---------- */
+const N=(k,l,x)=>Object.assign({k,l,t:'num'},x||{}),LS=(k,l,x)=>Object.assign({k,l,t:'list'},x||{}),AR=(k,l,x)=>Object.assign({k,l,t:'area'},x||{});
+const TAILF={k:'tail',l:'Hipótesis alternativa',t:'sel',o:[['two','Dos colas (≠)'],['right','Cola derecha (>)'],['left','Cola izquierda (<)']]};
+const CF=N('conf','Confianza %'),AF=N('alpha','α (significancia)');
+const FIELDS={
+ ic_t:[N('n','n'),N('xb','x̄'),N('s','s'),CF,LS('L1','Datos (opcional, reemplaza n, x̄ y s)')],
+ ic_z:[N('n','n'),N('xb','x̄'),N('sigma','σ'),CF,LS('L1','Datos (opcional)')],
+ ic_p:[N('x','Éxitos x'),N('n','n'),CF],
+ n_med:[N('sigma','σ (o s estimada)'),N('E','Margen de error E'),CF],
+ n_prop:[N('p','p estimada (vacío = 0,5)'),N('E','Margen de error E'),CF],
+ hip_t:[N('n','n'),N('xb','x̄'),N('s','s'),N('mu0','μ₀'),AF,TAILF,LS('L1','Datos (opcional)')],
+ hip_z:[N('n','n'),N('xb','x̄'),N('sigma','σ'),N('mu0','μ₀'),AF,TAILF,LS('L1','Datos (opcional)')],
+ hip_p:[N('x','Éxitos x'),N('n','n'),N('p0','p₀'),AF,TAILF],
+ dos_s:[N('n1','n₁'),N('x1','x̄₁'),N('s1','s₁'),N('n2','n₂'),N('x2','x̄₂'),N('s2','s₂'),AF,TAILF],
+ dos:[LS('L1','Grupo 1'),LS('L2','Grupo 2'),AF,TAILF],
+ par:[LS('L1','Antes'),LS('L2','Después'),AF,TAILF],
+ dos_p:[N('x1','x₁'),N('n1','n₁'),N('x2','x₂'),N('n2','n₂'),AF,TAILF],
+ reg:[LS('L1','X'),LS('L2','Y'),N('x0','Predecir en x₀ (opcional)'),CF],
+ ic_var:[N('n','n'),N('s','s'),CF,LS('L1','Datos (opcional)')],
+ chi_ind:[AR('M','Tabla (una fila por línea)'),AF],
+ chi_gof:[LS('O','Observadas'),LS('Ex','Esperadas o proporciones (vacío = uniforme)'),AF],
+ anova:[AR('G','Un grupo por línea'),AF],
+ zp:[N('mu','μ'),N('sd','σ'),N('a','a / valor'),N('b','b (solo "entre")'),{k:'tipo',l:'Tipo',t:'sel',o:[['menor','P(X < a)'],['mayor','P(X > a)'],['entre','P(a < X < b)'],['perc','Percentil a']]}],
+ tc:[N('df','Grados de libertad'),CF,N('tobs','t observado (opcional)')]
+};
+const OPENTAB={ic_t:'t80',dos:'two',par:'two',reg:'reg',chi_ind:'hyp',chi_gof:'hyp',anova:'hyp',hip_t:'hyp',tc:'tbl',dos_s:null};
+
+/* ---------- 6. verificación independiente ---------- */
+function simpson(f,a,b,n){n=n||4000;const h=(b-a)/n;let s=f(a)+f(b);for(let i=1;i<n;i++)s+=f(a+i*h)*(i%2?4:2);return s*h/3;}
+const ck=(ok,t)=>({ok:!!ok,t});
+const zc=c=>normalInvCDF(1-(1-c/100)/2),tcr=(c,df)=>tInvCDF(1-(1-c/100)/2,df);
+function chkCrit(kind,crit,df,conf){
+  const pdf=kind==='t'?(x=>tPDF(x,df)):normalPDF,I=simpson(pdf,-crit,crit);
+  return ck(Math.abs(I-conf/100)<1e-7,`Integración numérica de la densidad entre −${F(crit,4)} y +${F(crit,4)} = ${F(I,8)} (debe ser ${conf/100}) — no usa la función inversa`);
+}
+function chkChi(x,df,pRight){
+  let cdf;if(df===1)cdf=2*simpson(normalPDF,0,Math.sqrt(x));else if(df===2)cdf=1-Math.exp(-x/2);else cdf=simpson(y=>chiPDF(y,df),0,x,8000);
+  return ck(Math.abs((1-cdf)-pRight)<1e-6,`p-valor recalculado por integración/forma cerrada = ${F(1-cdf,8)} frente a ${F(pRight,8)}`);
+}
+function chkF(x,d1,d2,pRight){
+  let cdf;if(d1===1)cdf=2*simpson(y=>tPDF(y,d2),0,Math.sqrt(x),8000);else if(d1===2)cdf=1-Math.pow(1+2*x/d2,-d2/2);else cdf=simpson(y=>fPDF(y,d1,d2),0,x,20000);
+  return ck(Math.abs((1-cdf)-pRight)<1e-5,`p-valor recalculado por integración/forma cerrada = ${F(1-cdf,8)} frente a ${F(pRight,8)}`);
+}
+function testBlock(kind,stat,df,al,tail){
+  const cdf=kind==='t'?(x=>tCDF(x,df)):normalCDF,inv=kind==='t'?(p=>tInvCDF(p,df)):normalInvCDF,pdf=kind==='t'?(x=>tPDF(x,df)):normalPDF;
+  let p,crit,rejC;
+  if(tail==='two'){p=2*cdf(-Math.abs(stat));crit=inv(1-al/2);rejC=Math.abs(stat)>crit;}
+  else if(tail==='right'){p=cdf(-stat);crit=inv(1-al);rejC=stat>crit;}
+  else{p=cdf(stat);crit=-inv(1-al);rejC=stat<crit;}
+  const rej=p<al;let pi;
+  if(tail==='two')pi=1-simpson(pdf,-Math.abs(stat),Math.abs(stat));else if(tail==='right')pi=0.5-simpson(pdf,0,stat);else pi=0.5+simpson(pdf,0,stat);
+  return{p,crit,rej,checks:[ck(Math.abs(pi-p)<1e-7,`p-valor recalculado integrando la densidad = ${F(pi,8)} frente a ${F(p,8)}`),ck(rej===rejC,'La decisión por p-valor coincide con la decisión por valor crítico')]};
+}
+const TS={two:'≠',right:'>',left:'<'};
+const decision=(rej,p,al)=>rej?`p = ${F(p)} < α = ${F(al)} → se RECHAZA H₀`:`p = ${F(p)} ≥ α = ${F(al)} → NO se rechaza H₀`;
+const interpTest=(rej,what)=>rej?`Hay evidencia estadística suficiente, a ese nivel de significancia, ${what}.`:`No hay evidencia suficiente para rechazar H₀. Esto no prueba que H₀ sea cierta: solo que los datos no la contradicen lo bastante.`;
+const err=m=>({err:m}),miss=m=>err('Faltan o son inválidos: '+m+'.');
+const okN=v=>typeof v==='number'&&isFinite(v);
+const code=s=>`<code class="mono">${s}</code>`;
+const iv=(a,b)=>`[ ${F(a)} ; ${F(b)} ]`;
+const qb=(p,a,b)=>{let lo=0,hi=1;for(let i=0;i<100;i++){const m=(lo+hi)/2;if(betainc(m,a,b)<p)lo=m;else hi=m;}return(lo+hi)/2;};
+const binTail=(x,n,p,upper)=>{let s=0;const lg=(k)=>logGamma(k+1);for(let k=upper?x:0;k<=(upper?n:x);k++){if(p<=0){s+=(k===0?1:0);continue;}if(p>=1){s+=(k===n?1:0);continue;}s+=Math.exp(lg(n)-lg(k)-lg(n-k)+k*Math.log(p)+(n-k)*Math.log(1-p));}return s;};
+const cpI=(x,n,al)=>[x===0?0:qb(al/2,x,n-x+1),x===n?1:qb(1-al/2,x+1,n-x)];
+const wilI=(x,n,z)=>{const p=x/n,z2=z*z,d=1+z2/n,m=(p+z2/(2*n))/d,h=z*Math.sqrt(p*(1-p)/n+z2/(4*n*n))/d;return[m-h,m+h];};
+const acI=(x,n,z)=>{const nn=n+z*z,pt=(x+z*z/2)/nn,h=z*Math.sqrt(pt*(1-pt)/nn);return[pt-h,pt+h];};
+const confOK=c=>okN(c)&&c>0&&c<100,alOK=a=>okN(a)&&a>0&&a<1;
+function tbl(h,rows){return `<div style="overflow-x:auto"><table class="iq-tb"><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('')}</table></div>`;}
+function sample(v){const L=v.L1&&v.L1.length>=2?v.L1:null;return L?{L,n:L.length,xb:mean(L),s:sampleSD(L)}:{L:null,n:v.n,xb:v.xb,s:v.s};}
+function descr(L){const q=[...L].sort((a,b)=>a-b),n=q.length,at=p=>{const h=(n-1)*p,l=Math.floor(h);return q[l]+(h-l)*((q[l+1]!==undefined?q[l+1]:q[l])-q[l]);},q1=at(.25),q3=at(.75),i=q3-q1;
+  return{out:L.filter(x=>x<q1-1.5*i||x>q3+1.5*i).length,min:q[0],max:q[n-1],med:at(.5)};}
+
+const SOLVE={};
+SOLVE.ic_t=v=>{const S=sample(v),c=v.conf;if(!(S.n>=2)||!okN(S.xb)||!(S.s>=0))return miss('n (≥ 2), x̄ y s');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const al=1-c/100,df=S.n-1,t=tcr(c,df),se=S.s/Math.sqrt(S.n),E=t*se,lo=S.xb-E,hi=S.xb+E,warns=[];
+  if(S.n<30&&!S.L)warns.push('n < 30: el IC t exige que la población sea aproximadamente normal.');
+  if(S.L){const d=descr(S.L);if(d.out)warns.push(`Hay ${d.out} dato(s) atípico(s) (regla 1,5·IQR) que pueden inflar s y ensanchar el IC.`);if(S.n<30)warns.push('n < 30: revisa la normalidad (un histograma o la pestaña Bootstrap ayudan).');}
+  const lv=[90,95,99].map(l=>{const tt=tcr(l,df);return[l+' %',F(tt),F(S.xb-tt*se),F(S.xb+tt*se)];});
+  return{steps:[`Datos: n = ${code(S.n)}, x̄ = ${code(F(S.xb))}, s = ${code(F(S.s))}${S.L?' (calculados de tu lista)':''}; confianza ${code(c+' %')} → α = ${code(F(al))}`,`Grados de libertad: df = n − 1 = ${code(df)}`,`Valor crítico: t* = t(1 − α/2 ; ${df}) = ${code(F(t))}`,`Error estándar: EE = s/√n = ${F(S.s)}/√${S.n} = ${code(F(se))}`,`Margen de error: E = t*·EE = ${code(F(E))}`,`Intervalo: x̄ ± E = ${F(S.xb)} ± ${F(E)}`],
+   ans:`IC ${c} % para μ = ${iv(lo,hi)}`,interp:`Con ${c} % de confianza, la media poblacional μ está entre ${F(lo)} y ${F(hi)}. Significa que el método captura a μ en ${c} % de las muestras repetidas; no que haya ${c} % de probabilidad de que μ esté en este intervalo concreto. Se usa t porque σ es desconocida.`,
+   extra:`<div class="iq-t">El mismo cálculo a otros niveles:</div>`+tbl(['Nivel','t*','Inferior','Superior'],lv),warns,checks:[chkCrit('t',t,df,c)]};};
+SOLVE.ic_z=v=>{const S=sample(v),c=v.conf,sg=v.sigma;if(!(S.n>=2)||!okN(S.xb)||!(sg>0))return miss('n (≥ 2), x̄ y σ (> 0)');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const al=1-c/100,z=zc(c),se=sg/Math.sqrt(S.n),E=z*se;
+  return{steps:[`Datos: n = ${code(S.n)}, x̄ = ${code(F(S.xb))}, σ = ${code(F(sg))}; confianza ${code(c+' %')} → α = ${code(F(al))}`,`Valor crítico: z* = Φ⁻¹(1 − α/2) = ${code(F(z))}`,`Error estándar: EE = σ/√n = ${code(F(se))}`,`Margen de error: E = z*·EE = ${code(F(E))}`],
+   ans:`IC ${c} % para μ = ${iv(S.xb-E,S.xb+E)}`,interp:`Con ${c} % de confianza, μ está entre ${F(S.xb-E)} y ${F(S.xb+E)}. Se usa z porque σ es conocida.`,warns:S.n<30?['n < 30 con σ conocida: la población debe ser normal.']:[],checks:[chkCrit('z',z,0,c)]};};
+SOLVE.ic_p=v=>{const{x,n,conf:c}=v;if(!(n>=1)||!(x>=0&&x<=n)||x%1||n%1)return miss('x y n enteros con 0 ≤ x ≤ n');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const z=zc(c),p=x/n,se=Math.sqrt(p*(1-p)/n),E=z*se,W=wilI(x,n,z),A=acI(x,n,z),C=cpI(x,n,1-c/100),warns=[];
+  if(n*p<10||n*(1-p)<10)warns.push('np̂ o n(1−p̂) es menor que 10: Wald no es fiable; usa Wilson o Clopper-Pearson.');
+  return{steps:[`Proporción muestral: p̂ = x/n = ${x}/${n} = ${code(F(p))}`,`Valor crítico: z* = ${code(F(z))} (${c} %)`,`Wald: EE = √(p̂(1−p̂)/n) = ${F(se)}, E = ${F(E)} → ${iv(p-E,p+E)}`,`Wilson: ${iv(W[0],W[1])}`,`Agresti-Coull: ${iv(A[0],A[1])}`,`Clopper-Pearson (exacto): ${iv(C[0],C[1])}`],
+   ans:`IC ${c} % para p (Wilson, recomendado) = ${iv(W[0],W[1])}`,interp:`Con ${c} % de confianza, la proporción poblacional está entre ${F(W[0]*100,2)} % y ${F(W[1]*100,2)} %. Wald (el de los libros) da ${iv(p-E,p+E)}.`,
+   extra:tbl(['Método','Inferior','Superior','Ancho'],[['Wald',F(p-E),F(p+E),F(2*E)],['Wilson',F(W[0]),F(W[1]),F(W[1]-W[0])],['Agresti-Coull',F(A[0]),F(A[1]),F(A[1]-A[0])],['Clopper-Pearson',F(C[0]),F(C[1]),F(C[1]-C[0])]]),warns,
+   checks:[chkCrit('z',z,0,c),ck((x===0||Math.abs(binTail(x,n,C[0],true)-(1-c/100)/2)<1e-7)&&(x===n||Math.abs(binTail(x,n,C[1],false)-(1-c/100)/2)<1e-7),`Clopper-Pearson verificado sumando términos binomiales uno a uno: P(X ≥ ${x} | p = límite inf.) = ${F(binTail(x,n,C[0],true),8)} y P(X ≤ ${x} | p = límite sup.) = ${F(binTail(x,n,C[1],false),8)}; ambas deben ser α/2 = ${F((1-c/100)/2,8)}${x===0||x===n?' (un extremo es 0 ó 1 por definición)':''}`),ck(W[0]>=0&&W[1]<=1,'El intervalo de Wilson queda dentro de [0 ; 1]')]};};
+SOLVE.n_med=v=>{const{sigma:s,E,conf:c}=v;if(!(s>0)||!(E>0))return miss('σ y E mayores que 0');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const z=zc(c),ex=(z*s/E)**2,nz=Math.ceil(ex);let n=Math.max(2,nz);for(let i=0;i<60;i++){const m=Math.max(2,Math.ceil((tcr(c,n-1)*s/E)**2));if(m===n)break;n=m;}
+  return{steps:[`Valor crítico: z* = ${code(F(z))} (${c} %)`,`n = (z*·σ/E)² = (${F(z)}·${F(s)}/${F(E)})² = ${code(F(ex,3))}`,`Se redondea siempre hacia arriba: n = ${code(nz)}`,`Si σ es una estimación se itera con t* (df = n−1) hasta que n no cambie: n = ${code(n)}`],
+   ans:`n mínimo = ${nz} (con z)  ·  ${n} (con t, si σ es estimada)`,interp:'Si σ es conocida usa el valor con z; si es una estimación de una muestra piloto, el valor con t es más prudente. Para reducir E a la mitad hay que cuadruplicar n.',warns:[],checks:[chkCrit('z',z,0,c),ck(z*s/Math.sqrt(nz)<=E+1e-12&&z*s/Math.sqrt(nz-1)>E,`Con n = ${nz} el margen real es ${F(z*s/Math.sqrt(nz))} ≤ E = ${F(E)}, y con n = ${nz-1} ya no se cumple (${F(z*s/Math.sqrt(nz-1))}): ${nz} es el mínimo`)]};};
+SOLVE.n_prop=v=>{let{p,E,conf:c}=v;const pp=okN(p)?p:0.5;if(!(E>0&&E<1))return miss('E entre 0 y 1 (por ejemplo 0,03)');if(!(pp>0&&pp<1))return miss('p entre 0 y 1');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const z=zc(c),ex=z*z*pp*(1-pp)/(E*E),n=Math.ceil(ex);
+  return{steps:[`Valor crítico: z* = ${code(F(z))} (${c} %)`,`p = ${code(pp)}${okN(p)?'':' (sin información previa: caso más conservador, maximiza p(1−p))'}`,`n = z*²·p(1−p)/E² = ${code(F(ex,3))}`,`Se redondea hacia arriba`],ans:`n mínimo = ${n}`,interp:`Hay que encuestar al menos ${n} personas para que el margen de error sea ≤ ${F(E*100,2)} puntos porcentuales con ${c} % de confianza.`,warns:[],checks:[chkCrit('z',z,0,c),ck(z*Math.sqrt(pp*(1-pp)/n)<=E+1e-12,`Con n = ${n} el margen de error real es ${F(z*Math.sqrt(pp*(1-pp)/n))} ≤ ${F(E)}`)]};};
+function hipMean(v,kind){const S=sample(v),mu0=v.mu0,al=v.alpha,tail=v.tail;
+  const sd=kind==='t'?S.s:v.sigma;if(!(S.n>=2)||!okN(S.xb)||!(sd>0)||!okN(mu0))return miss(kind==='t'?'n, x̄, s (> 0) y μ₀':'n, x̄, σ (> 0) y μ₀');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const se=sd/Math.sqrt(S.n),stat=(S.xb-mu0)/se,df=S.n-1,B=testBlock(kind,stat,df,al,tail),c=(1-al)*100;
+  const q=kind==='t'?tcr(c,df):zc(c),lo=S.xb-q*se,hi=S.xb+q*se,sg=TS[tail];
+  const checks=[...B.checks];if(tail==='two')checks.push(ck((mu0<lo||mu0>hi)===B.rej,`El IC bilateral ${iv(lo,hi)} ${mu0<lo||mu0>hi?'no contiene':'contiene'} μ₀ = ${F(mu0)}: coincide con la decisión de la prueba`));
+  return{steps:[`Hipótesis: H₀: μ = ${code(F(mu0,4))}  vs  H₁: μ ${sg} ${code(F(mu0,4))}  ·  α = ${code(F(al))}`,`Datos: n = ${S.n}, x̄ = ${F(S.xb)}, ${kind==='t'?'s':'σ'} = ${F(sd)}${S.L?' (de tu lista)':''}`,`EE = ${kind==='t'?'s':'σ'}/√n = ${code(F(se))}`,`Estadístico: ${kind} = (x̄ − μ₀)/EE = ${code(F(stat))}${kind==='t'?`  (df = ${df})`:''}`,`Valor crítico: ${tail==='two'?'±':''}${F(B.crit)}`,`p-valor = ${code(F(B.p))}`,`Decisión: ${decision(B.rej,B.p,al)}`],
+   p:B.p,rej:B.rej,ans:B.rej?'Se RECHAZA H₀':'NO se rechaza H₀',interp:interpTest(B.rej,`para afirmar que μ ${sg} ${F(mu0,4)}`),extra:`<div class="iq-t">IC bilateral de ${F(c,2)} % para μ: ${iv(lo,hi)}</div>`,warns:kind==='t'&&S.n<30&&!S.L?['n < 30: la prueba t exige población aproximadamente normal.']:[],checks};}
+SOLVE.hip_t=v=>hipMean(v,'t');SOLVE.hip_z=v=>hipMean(v,'z');
+SOLVE.hip_p=v=>{const{x,n,p0,alpha:al,tail}=v;if(!(n>=1)||!(x>=0&&x<=n)||!(p0>0&&p0<1))return miss('x, n y p₀ (entre 0 y 1)');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const p=x/n,se=Math.sqrt(p0*(1-p0)/n),z=(p-p0)/se,B=testBlock('z',z,0,al,tail),W=wilI(x,n,zc((1-al)*100));
+  const pr=1-betainc(p0,x,n-x+1),pl=betainc(p0,x+1,n-x),pe=tail==='right'?pr:tail==='left'?pl:Math.min(1,2*Math.min(pr,pl));
+  return{steps:[`Hipótesis: H₀: p = ${code(p0)}  vs  H₁: p ${TS[tail]} ${code(p0)}  ·  α = ${code(F(al))}`,`p̂ = x/n = ${x}/${n} = ${code(F(p))}`,`EE bajo H₀ = √(p₀(1−p₀)/n) = ${code(F(se))}`,`Estadístico: z = (p̂ − p₀)/EE = ${code(F(z))}`,`p-valor (normal) = ${code(F(B.p))}`,`p-valor exacto (binomial, vía beta incompleta) = ${code(F(pe))}`,`Decisión: ${decision(B.rej,B.p,al)}`],
+   p:B.p,rej:B.rej,ans:B.rej?'Se RECHAZA H₀':'NO se rechaza H₀',interp:interpTest(B.rej,`para afirmar que p ${TS[tail]} ${p0}`),extra:`<div class="iq-t">IC Wilson ${F((1-al)*100,2)} %: ${iv(W[0],W[1])}</div>`,warns:(n*p0<10||n*(1-p0)<10)?['n·p₀ o n(1−p₀) < 10: la aproximación normal es débil; confía más en el p-valor exacto.']:[],checks:B.checks};};
+function twoMeans(n1,x1,s1,n2,x2,s2,al,tail,tag){
+  if(!(n1>=2&&n2>=2)||![x1,x2].every(okN)||!(s1>=0&&s2>=0))return miss('n, media y s de ambos grupos');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const a=s1*s1/n1,b=s2*s2/n2,se=Math.sqrt(a+b);if(se===0)return err('Ambos grupos tienen varianza 0.');
+  const d=x1-x2,df=(a+b)**2/(a*a/(n1-1)+b*b/(n2-1)),stat=d/se,B=testBlock('t',stat,df,al,tail),c=(1-al)*100,q=tcr(c,df),lo=d-q*se,hi=d+q*se;
+  const dfp=n1+n2-2,sp=Math.sqrt(((n1-1)*s1*s1+(n2-1)*s2*s2)/dfp),sep=sp*Math.sqrt(1/n1+1/n2),qp=tcr(c,dfp),cd=d/sp,Fv=s1*s1/(s2*s2),Fp=Math.min(1,2*Math.min(fCDF(Fv,n1-1,n2-1),1-fCDF(Fv,n1-1,n2-1)));
+  const checks=[...B.checks,chkCrit('t',q,df,c)];if(tail==='two')checks.push(ck((lo>0||hi<0)===B.rej,`El IC ${iv(lo,hi)} ${lo>0||hi<0?'no contiene':'contiene'} el 0: coincide con la decisión de la prueba`));
+  return{steps:[`${tag||''}Hipótesis: H₀: μ₁ = μ₂  vs  H₁: μ₁ ${TS[tail]} μ₂  ·  α = ${code(F(al))}`,`Grupo 1: n = ${n1}, x̄ = ${F(x1)}, s = ${F(s1)}  ·  Grupo 2: n = ${n2}, x̄ = ${F(x2)}, s = ${F(s2)}`,`Diferencia: x̄₁ − x̄₂ = ${code(F(d))}  ·  EE (Welch) = √(s₁²/n₁ + s₂²/n₂) = ${code(F(se))}`,`Grados de libertad (Welch–Satterthwaite): df = ${code(F(df,3))}`,`Estadístico: t = ${code(F(stat))}  ·  p-valor = ${code(F(B.p))}`,`Decisión: ${decision(B.rej,B.p,al)}`,`IC ${F(c,2)} % para μ₁ − μ₂ (Welch) = ${iv(lo,hi)}`,`Alternativa con varianzas iguales (agrupada, df = ${dfp}): ${iv(d-qp*sep,d+qp*sep)}`],
+   p:B.p,rej:B.rej,ans:B.rej?'Se RECHAZA H₀: hay diferencia':'NO se rechaza H₀: no hay evidencia de diferencia',interp:interpTest(B.rej,`para afirmar que μ₁ ${TS[tail]} μ₂`),extra:`<div class="iq-t">d de Cohen = ${F(Math.abs(cd),3)} (${Math.abs(cd)<.2?'trivial':Math.abs(cd)<.5?'pequeño':Math.abs(cd)<.8?'mediano':'grande'}). Prueba F de varianzas: F = ${F(Fv,4)}, p ≈ ${F(Fp,4)} ${Fp<al?'(varianzas distintas: Welch es lo correcto)':'(sin evidencia de varianzas distintas)'}.</div>`,warns:[],checks};}
+SOLVE.dos_s=v=>twoMeans(v.n1,v.x1,v.s1,v.n2,v.x2,v.s2,v.alpha,v.tail);
+SOLVE.dos=v=>{const A=v.L1||[],Bv=v.L2||[];if(A.length<2||Bv.length<2)return miss('dos listas con al menos 2 datos');return twoMeans(A.length,mean(A),sampleSD(A),Bv.length,mean(Bv),sampleSD(Bv),v.alpha,v.tail,'');};
+SOLVE.par=v=>{const A=v.L1||[],Bv=v.L2||[];if(A.length<2||A.length!==Bv.length)return miss('dos listas con el mismo número de datos (≥ 2)');if(!alOK(v.alpha))return err('α debe estar entre 0 y 1.');
+  const d=A.map((x,i)=>x-Bv[i]),n=d.length,db=mean(d),sd=sampleSD(d);if(sd===0)return err('Todas las diferencias son iguales: no se puede estimar la variabilidad.');
+  const se=sd/Math.sqrt(n),stat=db/se,df=n-1,B=testBlock('t',stat,df,v.alpha,v.tail),c=(1-v.alpha)*100,q=tcr(c,df),lo=db-q*se,hi=db+q*se;
+  const checks=[...B.checks,chkCrit('t',q,df,c)];if(v.tail==='two')checks.push(ck((lo>0||hi<0)===B.rej,`El IC ${iv(lo,hi)} ${lo>0||hi<0?'no contiene':'contiene'} el 0: coincide con la decisión`));
+  return{steps:[`Diferencias d = antes − después; n = ${n}, d̄ = ${code(F(db))}, s_d = ${code(F(sd))}`,`Hipótesis: H₀: μ_d = 0  vs  H₁: μ_d ${TS[v.tail]} 0  ·  α = ${code(F(v.alpha))}`,`Estadístico: t = d̄/(s_d/√n) = ${code(F(stat))}  (df = ${df})  ·  p-valor = ${code(F(B.p))}`,`Decisión: ${decision(B.rej,B.p,v.alpha)}`,`IC ${F(c,2)} % para μ_d = ${iv(lo,hi)}`],p:B.p,rej:B.rej,ans:B.rej?'Se RECHAZA H₀: hay cambio':'NO se rechaza H₀: no hay evidencia de cambio',interp:interpTest(B.rej,'de que el promedio de las diferencias es distinto de 0 en la dirección indicada'),warns:n<30?['n < 30: las diferencias deben ser aproximadamente normales.']:[],checks};};
+SOLVE.dos_p=v=>{const{x1,n1,x2,n2,alpha:al,tail}=v;if(!(n1>=1&&n2>=1&&x1>=0&&x2>=0&&x1<=n1&&x2<=n2))return miss('x y n de ambos grupos');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const p1=x1/n1,p2=x2/n2,d=p1-p2,c=(1-al)*100,z=zc(c),se=Math.sqrt(p1*(1-p1)/n1+p2*(1-p2)/n2),pp=(x1+x2)/(n1+n2),sep=Math.sqrt(pp*(1-pp)*(1/n1+1/n2));if(sep===0)return err('Las proporciones agrupadas son 0 o 1.');
+  const zs=d/sep,B=testBlock('z',zs,0,al,tail),a=wilI(x1,n1,z),b=wilI(x2,n2,z),nw=[d-Math.sqrt((p1-a[0])**2+(b[1]-p2)**2),d+Math.sqrt((a[1]-p1)**2+(p2-b[0])**2)];
+  let rr='—',or='—';if(x1>0&&x2>0){const s1=Math.sqrt(1/x1-1/n1+1/x2-1/n2),lr=Math.log(p1/p2);rr=iv(Math.exp(lr-z*s1),Math.exp(lr+z*s1));if(x1<n1&&x2<n2){const s2=Math.sqrt(1/x1+1/(n1-x1)+1/x2+1/(n2-x2)),lo=Math.log((x1/(n1-x1))/(x2/(n2-x2)));or=iv(Math.exp(lo-z*s2),Math.exp(lo+z*s2));}}
+  return{steps:[`p̂₁ = ${x1}/${n1} = ${code(F(p1))}  ·  p̂₂ = ${x2}/${n2} = ${code(F(p2))}  ·  diferencia = ${code(F(d))}`,`Hipótesis: H₀: p₁ = p₂  vs  H₁: p₁ ${TS[tail]} p₂  ·  α = ${code(F(al))}`,`Proporción agrupada p̂ = ${F(pp)}  ·  EE = ${F(sep)}  ·  z = ${code(F(zs))}  ·  p-valor = ${code(F(B.p))}`,`Decisión: ${decision(B.rej,B.p,al)}`,`IC ${F(c,2)} % para p₁ − p₂: Wald ${iv(d-z*se,d+z*se)} · Newcombe ${iv(nw[0],nw[1])}`,`Riesgo relativo (IC): ${rr}  ·  Odds ratio (IC): ${or}`],p:B.p,rej:B.rej,ans:B.rej?'Se RECHAZA H₀: las proporciones difieren':'NO se rechaza H₀',interp:interpTest(B.rej,`para afirmar que p₁ ${TS[tail]} p₂`),warns:[x1,n1-x1,x2,n2-x2].some(q=>q<5)?['Alguna cuenta es menor que 5: la aproximación normal es débil.']:[],checks:[...B.checks,chkCrit('z',z,0,c)]};};
+SOLVE.ic_var=v=>{const S=v.L1&&v.L1.length>=2?{n:v.L1.length,s:sampleSD(v.L1)}:{n:v.n,s:v.s},c=v.conf;if(!(S.n>=2)||!(S.s>0))return miss('n (≥ 2) y s (> 0)');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const al=1-c/100,df=S.n-1,c1=chiInvCDF(al/2,df),c2=chiInvCDF(1-al/2,df),va=S.s*S.s,lo=df*va/c2,hi=df*va/c1;
+  return{steps:[`n = ${S.n}, s = ${F(S.s)}, s² = ${code(F(va))}, df = ${df}`,`χ²(α/2) = ${code(F(c1))}  ·  χ²(1−α/2) = ${code(F(c2))}`,`σ² ∈ [ (n−1)s²/χ²₁₋α/₂ ; (n−1)s²/χ²α/₂ ] = ${iv(lo,hi)}`,`σ ∈ ${iv(Math.sqrt(lo),Math.sqrt(hi))}`],ans:`IC ${c} % para σ = ${iv(Math.sqrt(lo),Math.sqrt(hi))}`,interp:'Este IC supone población normal y es muy sensible a que no lo sea.',warns:[],checks:[chkChi(c1,df,1-al/2),chkChi(c2,df,al/2)]};};
+const parseMat=t=>String(t||'').split('\n').map(parseNums).filter(r=>r&&r.length);
+SOLVE.chi_ind=v=>{const M=parseMat(v.M),al=v.alpha;if(M.length<2||M[0].length<2||!M.every(r=>r.length===M[0].length))return miss('una tabla con al menos 2 filas y 2 columnas del mismo ancho');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const r=M.length,cc=M[0].length,rs=M.map(a=>a.reduce((p,q)=>p+q,0)),cs=M[0].map((_,j)=>M.reduce((p,a)=>p+a[j],0)),n=rs.reduce((p,q)=>p+q,0),E=M.map((a,i)=>a.map((_,j)=>rs[i]*cs[j]/n));
+  if(E.flat().some(q=>q===0))return err('Una fila o columna suma 0.');let x2=0;M.forEach((a,i)=>a.forEach((o,j)=>x2+=(o-E[i][j])**2/E[i][j]));
+  const df=(r-1)*(cc-1),p=1-chiCDF(x2,df),crit=chiInvCDF(1-al,df),V=Math.sqrt(x2/(n*Math.min(r-1,cc-1))),small=E.flat().filter(q=>q<5).length,rej=p<al;
+  let yates='';if(r===2&&cc===2){let y=0;M.forEach((a,i)=>a.forEach((o,j)=>y+=(Math.max(0,Math.abs(o-E[i][j])-.5))**2/E[i][j]));yates=`Con corrección de Yates (2×2): χ² = ${F(y)}, p = ${F(1-chiCDF(y,1))}`;}
+  return{steps:[`Tabla ${r}×${cc}, N = ${n}`,`Esperadas E = (total fila · total columna)/N:`+tbl([''].concat(M[0].map((_,j)=>'col '+(j+1))),E.map((a,i)=>['fila '+(i+1)].concat(a.map(q=>F(q,3)))) ),`χ² = Σ (O−E)²/E = ${code(F(x2))}`,`df = (${r}−1)(${cc}−1) = ${df}  ·  χ² crítico (α = ${F(al)}) = ${F(crit)}`,`p-valor = ${code(F(p))}  ·  V de Cramér = ${F(V)}`,`Decisión: ${decision(rej,p,al)}`].concat(yates?[yates]:[]),
+   ans:rej?'Se RECHAZA la independencia: hay asociación':'NO se rechaza la independencia',interp:interpTest(rej,'de que las variables están asociadas')+` (V de Cramér = ${F(V,3)}: ${V<.1?'asociación despreciable':V<.3?'débil':V<.5?'moderada':'fuerte'}).`,warns:small?[`${small} celda(s) con frecuencia esperada < 5: la prueba pierde fiabilidad.`]:[],checks:[chkChi(x2,df,p),ck(Math.abs(E.flat().reduce((a,b)=>a+b,0)-n)<1e-9,`ΣE = ${F(E.flat().reduce((a,b)=>a+b,0),3)} = N = ${n}`),ck((x2>crit)===rej,'p-valor y valor crítico llevan a la misma decisión')]};};
+SOLVE.chi_gof=v=>{const O=v.O||[],al=v.alpha;if(O.length<2)return miss('al menos 2 categorías observadas');if(!alOK(al))return err('α debe estar entre 0 y 1.');const tot=O.reduce((a,b)=>a+b,0);let E=v.Ex&&v.Ex.length?v.Ex.slice():O.map(()=>tot/O.length);
+  if(E.length!==O.length)return err('Observadas y esperadas deben tener la misma cantidad de valores.');const se=E.reduce((a,b)=>a+b,0);if(Math.abs(se-1)<0.01)E=E.map(q=>q*tot);else if(Math.abs(se-tot)>1e-6*tot&&Math.abs(se-100)<0.01)E=E.map(q=>q*tot/100);
+  if(E.some(q=>!(q>0)))return err('Las frecuencias esperadas deben ser positivas.');const x2=O.reduce((s,o,i)=>s+(o-E[i])**2/E[i],0),df=O.length-1,p=1-chiCDF(x2,df),crit=chiInvCDF(1-al,df),rej=p<al,small=E.filter(q=>q<5).length;
+  return{steps:[`Observadas: ${O.join(', ')}  ·  total = ${tot}`,`Esperadas: ${E.map(q=>F(q,3)).join(', ')}`,`χ² = Σ (O−E)²/E = ${code(F(x2))}  ·  df = k − 1 = ${df}`,`χ² crítico (α = ${F(al)}) = ${F(crit)}  ·  p-valor = ${code(F(p))}`,`Decisión: ${decision(rej,p,al)}`],ans:rej?'Se RECHAZA H₀: no se ajusta a lo esperado':'NO se rechaza H₀: el ajuste es aceptable',interp:interpTest(rej,'de que los datos no siguen la distribución esperada'),warns:small?[`${small} categoría(s) con esperada < 5.`]:[],checks:[chkChi(x2,df,p),ck((x2>crit)===rej,'p-valor y valor crítico llevan a la misma decisión')]};};
+SOLVE.anova=v=>{const G=parseMat(v.G).filter(g=>g.length>=2),al=v.alpha;if(G.length<2)return miss('al menos 2 grupos con 2 datos cada uno');if(!alOK(al))return err('α debe estar entre 0 y 1.');
+  const k=G.length,N=G.reduce((s,g)=>s+g.length,0),gm=G.flat().reduce((a,b)=>a+b,0)/N,ssb=G.reduce((s,g)=>s+g.length*(mean(g)-gm)**2,0),ssw=G.reduce((s,g)=>{const m=mean(g);return s+g.reduce((q,x)=>q+(x-m)**2,0);},0),dB=k-1,dW=N-k;
+  if(!(dW>0)||ssw===0)return err('No hay variabilidad dentro de los grupos (o faltan datos).');const msb=ssb/dB,msw=ssw/dW,Fv=msb/msw,p=1-fCDF(Fv,dB,dW),crit=fInvCDF(1-al,dB,dW),rej=p<al,eta=ssb/(ssb+ssw),m=k*(k-1)/2;
+  const pw=[];for(let i=0;i<k;i++)for(let j=i+1;j<k;j++){const t=(mean(G[i])-mean(G[j]))/Math.sqrt(msw*(1/G[i].length+1/G[j].length)),pp=Math.min(1,m*2*tCDF(-Math.abs(t),dW));pw.push(['G'+(i+1)+' − G'+(j+1),F(mean(G[i])-mean(G[j])),F(t),F(pp),pp<al?'sí':'no']);}
+  const vr=G.map(g=>sampleSD(g)**2),ratio=Math.max(...vr)/Math.min(...vr);
+  return{steps:[`${k} grupos, N = ${N}  ·  medias: ${G.map(g=>F(mean(g),3)).join(' · ')}`,`SSB = ${F(ssb)} (entre)  ·  SSW = ${F(ssw)} (dentro)`,`MSB = SSB/(k−1) = ${F(msb)}  ·  MSW = SSW/(N−k) = ${F(msw)}`,`F = MSB/MSW = ${code(F(Fv))}  (df = ${dB}, ${dW})  ·  F crítico = ${F(crit)}  ·  p-valor = ${code(F(p))}`,`Decisión: ${decision(rej,p,al)}  ·  η² = ${F(eta,4)}`],ans:rej?'Se RECHAZA H₀: al menos una media difiere':'NO se rechaza H₀: no hay evidencia de diferencias',interp:interpTest(rej,'de que no todas las medias son iguales'),
+   extra:rej?`<div class="iq-t">Comparaciones por pares (t con MSW, ajuste de Bonferroni):</div>`+tbl(['Par','Diferencia','t','p ajustado','¿Significativa?'],pw):'',warns:ratio>4?[`La razón entre la mayor y la menor varianza es ${F(ratio,2)} (> 4): se viola la homogeneidad de varianzas; considera Welch-ANOVA.`]:[],checks:[chkF(Fv,dB,dW,p),ck((Fv>crit)===rej,'p-valor y valor crítico llevan a la misma decisión'),ck(Math.abs(ssb+ssw-G.flat().reduce((s,x)=>s+(x-gm)**2,0))<1e-6*(ssb+ssw),'SSB + SSW = SST')]};};
+SOLVE.reg=v=>{const x=v.L1||[],y=v.L2||[],c=v.conf;if(x.length!==y.length||x.length<3)return miss('X e Y con el mismo número de datos (≥ 3)');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const n=x.length,mx=mean(x),my=mean(y),Sxx=x.reduce((a,t)=>a+(t-mx)**2,0),Syy=y.reduce((a,t)=>a+(t-my)**2,0),Sxy=x.reduce((a,t,i)=>a+(t-mx)*(y[i]-my),0);if(Sxx===0||Syy===0)return err('X o Y no varían: no se puede ajustar la recta.');
+  const b1=Sxy/Sxx,b0=my-b1*mx,df=n-2,sse=Math.max(0,Syy-b1*Sxy),se=Math.sqrt(sse/df),r=Sxy/Math.sqrt(Sxx*Syy),sb1=se/Math.sqrt(Sxx),sb0=se*Math.sqrt(1/n+mx*mx/Sxx),tb=b1/sb1,pv=2*tCDF(-Math.abs(tb),df),t=tcr(c,df);
+  const zf=Math.atanh(r),zz=zc(c),rl=n>3?[Math.tanh(zf-zz/Math.sqrt(n-3)),Math.tanh(zf+zz/Math.sqrt(n-3))]:null,x0=v.x0,pred=okN(x0)?(()=>{const yh=b0+b1*x0,k=1/n+(x0-mx)**2/Sxx,em=t*se*Math.sqrt(k),ep=t*se*Math.sqrt(1+k);return{yh,em,ep};})():null;
+  const tr=Math.abs(r)<1?r*Math.sqrt(df)/Math.sqrt(1-r*r):Infinity;
+  return{steps:[`n = ${n}  ·  x̄ = ${F(mx)}  ·  ȳ = ${F(my)}`,`Pendiente b₁ = Sxy/Sxx = ${code(F(b1))}  ·  intercepto b₀ = ȳ − b₁x̄ = ${code(F(b0))}`,`Recta: ŷ = ${code(F(b0)+' + '+F(b1)+'·x')}`,`r = ${code(F(r,5))}  ·  R² = ${code(F(r*r,5))}  ·  error estándar residual = ${F(se,5)}`,`t de la pendiente = ${F(tb)}  (df = ${df})  ·  p-valor (H₀: β₁ = 0) = ${code(F(pv))}`,`IC ${c} % de β₁ = ${iv(b1-t*sb1,b1+t*sb1)}  ·  de β₀ = ${iv(b0-t*sb0,b0+t*sb0)}`].concat(rl?[`IC ${c} % de ρ (Fisher) = ${iv(rl[0],rl[1])}`]:[]).concat(pred?[`Predicción en x₀ = ${x0}: ŷ = ${F(pred.yh)}  ·  IC de la media ${iv(pred.yh-pred.em,pred.yh+pred.em)}  ·  intervalo de predicción ${iv(pred.yh-pred.ep,pred.yh+pred.ep)}`]:[]),
+   ans:`ŷ = ${F(b0,4)} + ${F(b1,4)}·x   (r = ${F(r,4)}, R² = ${F(r*r,4)})`,interp:pv<1-c/100?`Hay relación lineal significativa (el IC de la pendiente no contiene 0). Cada unidad más de X se asocia con ${F(b1,4)} unidades de Y.`:'No hay evidencia de relación lineal significativa a ese nivel.',warns:pred&&(x0<Math.min(...x)||x0>Math.max(...x))?['x₀ está fuera del rango de X: extrapolar es poco fiable.']:[],checks:[chkCrit('t',t,df,c),ck(Math.abs(tb-tr)<1e-6*Math.max(1,Math.abs(tb))||!isFinite(tr),`El estadístico t de la pendiente (${F(tb,5)}) coincide con el de r: r√df/√(1−r²) = ${F(tr,5)}`)]};};
+SOLVE.zp=v=>{const{mu,sd,a,b,tipo}=v;if(!okN(mu)||!(sd>0)||!okN(a))return miss('μ, σ (> 0) y el valor a');const Z=q=>(q-mu)/sd,P=zv=>normalCDF(zv);
+  if(tipo==='perc'){if(!(a>0&&a<100))return err('El percentil debe estar entre 0 y 100.');const zz=normalInvCDF(a/100),xv=mu+zz*sd;return{steps:[`Percentil ${a} → z = Φ⁻¹(${F(a/100)}) = ${code(F(zz))}`,`x = μ + z·σ = ${code(F(xv))}`],ans:`x = ${F(xv)}`,interp:`El ${a} % de los valores queda por debajo de ${F(xv)}.`,warns:[],checks:[ck(Math.abs(simpson(normalPDF,-10,zz)-a/100)<1e-7,`∫ φ de −∞ a z = ${F(simpson(normalPDF,-10,zz),8)} ≈ ${a/100}`)]};}
+  if(tipo==='entre'){if(!okN(b))return miss('el límite superior b');const P2=P(Z(b))-P(Z(a));return{steps:[`z₁ = (${a} − ${mu})/${sd} = ${code(F(Z(a)))}  ·  z₂ = (${b} − ${mu})/${sd} = ${code(F(Z(b)))}`,`P = Φ(z₂) − Φ(z₁) = ${code(F(P2))}`],ans:`P(${a} < X < ${b}) = ${F(P2)}  (${F(P2*100,3)} %)`,interp:'',warns:[],checks:[ck(Math.abs(simpson(normalPDF,Z(a),Z(b))-P2)<1e-7,`Integración numérica = ${F(simpson(normalPDF,Z(a),Z(b)),8)}`)]};}
+  const zz=Z(a),Pv=tipo==='menor'?P(zz):P(-zz),ii=tipo==='menor'?0.5+simpson(normalPDF,0,zz):0.5-simpson(normalPDF,0,zz);
+  return{steps:[`z = (${a} − ${mu})/${sd} = ${code(F(zz))}`,`P = ${tipo==='menor'?'Φ(z)':'1 − Φ(z)'} = ${code(F(Pv))}`],ans:`P(X ${tipo==='menor'?'<':'>'} ${a}) = ${F(Pv)}  (${F(Pv*100,3)} %)`,interp:'',warns:[],checks:[ck(Math.abs(ii-Pv)<1e-7,`Integración numérica = ${F(ii,8)}`)]};};
+SOLVE.tc=v=>{const{df,conf:c,tobs:t0}=v;if(!(df>0))return miss('grados de libertad (> 0)');if(!confOK(c))return err('La confianza debe estar entre 0 y 100 %.');
+  const al=1-c/100,t2=tcr(c,df),t1=tInvCDF(1-al,df),z=zc(c);const steps=[`df = ${df}  ·  confianza ${c} %  ·  α = ${F(al)}`,`t* dos colas (α/2 = ${F(al/2)}) = ${code(F(t2))}`,`t* una cola (α = ${F(al)}) = ${code(F(t1))}`,`z* equivalente = ${F(z)}  ·  costo de estimar σ: t* − z* = ${F(t2-z)}`];
+  if(okN(t0))steps.push(`Con t = ${t0}: cola derecha = ${F(tCDF(-t0,df))}  ·  cola izquierda = ${F(tCDF(t0,df))}  ·  dos colas = ${code(F(2*tCDF(-Math.abs(t0),df)))}`);
+  return{steps,ans:`t* = ±${F(t2)}`,interp:'Con df grande, t* tiende a z*.',warns:[],checks:[chkCrit('t',t2,df,c)]};};
+
+/* ---------- 7. API pública ---------- */
+function solve(topic,v){try{const r=SOLVE[topic]?SOLVE[topic](v):err('Tema no disponible.');return r;}catch(ex){return err('Error al calcular: '+ex.message);}}
+const CORE={ic_t:['n','xb','s'],ic_z:['n','xb','sigma'],hip_t:['n','xb','s','mu0'],hip_z:['n','xb','sigma','mu0'],ic_p:['x','n'],hip_p:['x','n','p0'],n_med:['sigma','E'],ic_var:['n','s']};
+function inferSlots(e,topic,v){const core=CORE[topic];if(!core||(v.L1&&v.L1.length))return[];const miss=core.filter(k=>v[k]===''||v[k]===undefined||(typeof v[k]==='number'&&isNaN(v[k])));if(miss.length!==1)return[];
+  const used=[e.conf,e.alpha,e.alpha*100];Object.keys(v).forEach(k=>{if(typeof v[k]==='number')used.push(v[k]);});
+  const pool=[];for(const q of e.T.matchAll(/(?<![\d.a-z])(-?\d+(?:\.\d+)?)(?![\d.]|\s*%|[a-z])/g)){const x=parseFloat(q[1]);if(used.some(u=>Math.abs(u-x)<1e-9)||pool.includes(x))continue;pool.push(x);}
+  const k=miss[0],ok=x=>k==='n'?(Number.isInteger(x)&&x>=2&&x<=1e6):k==='x'?(Number.isInteger(x)&&x>=0&&(v.n===''||x<=v.n)):(k==='mu0')?true:k==='p0'?(x>0&&x<1):x>0;
+  const cand=pool.filter(ok);if(cand.length!==1)return[];v[k]=cand[0];return[k];}
+function analyze(text){const e=extract(text),c=classify(e),topic=c.top,v=fill(topic,e),inferred=inferSlots(e,topic,v);return{e,c,topic,v,inferred};}
+function reading(topic,v,e,inferred){const name=(TOP.find(t=>t[0]===topic)||[,topic])[1],parts=[];(FIELDS[topic]||[]).forEach(f=>{const x=v[f.k];if(x===''||x===undefined||x===null||(typeof x==='number'&&isNaN(x)))return;
+  let txt;if(f.t==='num')txt=f.l+' = '+F(x,6).replace(/,?0+$/,'');else if(f.t==='list')txt=Array.isArray(x)&&x.length?f.l+': '+x.length+' datos':null;else if(f.t==='area')txt=x?f.l+': tabla/grupos':null;else if(f.t==='sel')txt=f.l+': '+((f.o.find(o=>o[0]===x)||[,x])[1]);if(!txt)return;
+  const tags=[];if(inferred&&inferred.includes(f.k))tags.push('inferido: era el único número sin asignar');if((f.k==='conf'||f.k==='alpha')&&e&&e.confSrc==='defecto')tags.push('por defecto');if(f.k==='tail'&&e&&!e.tailExplicit)tags.push('por defecto');parts.push(txt+(tags.length?' ('+tags.join('; ')+')':''));});
+  return{name,parts};}
+/* ---------- Boost Plus: lecturas alternativas, diagnósticos y contrastes independientes ---------- */
+function prng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
+const TESTS=new Set(['hip_t','hip_z','hip_p','dos_s','dos','par','dos_p']);
+function diagList(L,name){const n=L.length,m=mean(L),m2=L.reduce((a,x)=>a+(x-m)**2,0)/n;if(!(m2>0)||n<4)return null;const m3=L.reduce((a,x)=>a+(x-m)**3,0)/n,m4=L.reduce((a,x)=>a+(x-m)**4,0)/n,sk=m3/Math.pow(m2,1.5),ku=m4/(m2*m2)-3,jb=n/6*(sk*sk+ku*ku/4),pj=Math.exp(-jb/2),d=descr(L);
+  return `${name}: n = ${n}, asimetría = ${F(sk,3)}, curtosis = ${F(ku,3)}, Jarque-Bera p ≈ ${F(pj,3)}${n<20?' (con n<20 esta prueba es poco potente)':''}, atípicos = ${d.out}`;}
+function boost(topic,v){
+  const out=[],sec=(t,h)=>out.push(`<div class="iq-bsec"><b>${t}</b>${h}</div>`);
+  /* 1. las tres colas */
+  if(TESTS.has(topic)){const rows=['two','right','left'].map(t=>{const r=solve(topic,Object.assign({},v,{tail:t}));const nm={two:'Dos colas (≠)',right:'Cola derecha (>)',left:'Cola izquierda (<)'}[t];return r&&r.p!==undefined?[t===v.tail?'<b>'+nm+' ◀</b>':nm,F(r.p),r.rej?'se rechaza H₀':'no se rechaza H₀']:[nm,'—','—'];});
+    sec('Las tres lecturas de la hipótesis alternativa',tbl(['H₁','p-valor','Decisión'],rows)+'<div class="iq-t">Si tu enunciado no dice «mayor» o «menor», la lectura correcta es de dos colas. Mira cuánto cambia la decisión según la dirección.</div>');}
+  /* 2. diagnóstico de supuestos y contrastes con listas */
+  const L1=v.L1&&v.L1.length>=2?v.L1:null,L2=v.L2&&v.L2.length>=2?v.L2:null,diag=[];
+  if(['ic_t','ic_z','hip_t','hip_z','ic_var'].includes(topic)&&L1){const d=diagList(L1,'Datos');if(d)diag.push(d);}
+  if((topic==='dos'||topic==='par')&&L1&&L2){const a=diagList(L1,topic==='par'?'Antes':'Grupo 1'),b=diagList(L2,topic==='par'?'Después':'Grupo 2');if(a)diag.push(a);if(b)diag.push(b);if(topic==='dos'){const r=Math.max(sampleSD(L1),sampleSD(L2))/Math.min(sampleSD(L1),sampleSD(L2));diag.push(`Razón de desviaciones = ${F(r,3)} ${r>2?'(varianzas muy distintas: Welch es lo correcto)':'(similares)'}`);}}
+  if(diag.length)sec('Diagnóstico de supuestos',diag.map(x=>'<div class="iq-t">• '+x+'</div>').join(''));
+  const rnd=prng(20260101),B=5000;
+  if(['ic_t','hip_t','ic_z','hip_z'].includes(topic)&&L1&&L1.length>=5){const n=L1.length,ms=new Array(B);for(let i=0;i<B;i++){let t=0;for(let j=0;j<n;j++)t+=L1[Math.floor(rnd()*n)];ms[i]=t/n;}ms.sort((a,b)=>a-b);
+    const c=v.conf!==undefined&&isFinite(v.conf)?v.conf:(1-(isFinite(v.alpha)?v.alpha:0.05))*100,a=(1-c/100)/2,q=p=>{const h=(B-1)*p,l=Math.floor(h);return ms[l]+(h-l)*((ms[l+1]!==undefined?ms[l+1]:ms[l])-ms[l]);},xb=mean(L1),se=sampleSD(L1)/Math.sqrt(n),t=tcr(c,n-1);
+    sec('Contraste con bootstrap (5 000 remuestras, semilla fija)',tbl(['Método','Inferior','Superior','Ancho'],[['IC t',F(xb-t*se),F(xb+t*se),F(2*t*se)],['IC bootstrap percentil',F(q(a)),F(q(1-a)),F(q(1-a)-q(a))]])+`<div class="iq-t">${Math.abs((q(1-a)-q(a))/(2*t*se)-1)>0.25?'Los anchos difieren más de 25 %: desconfía del IC t (muestra pequeña o no normal).':'Ambos intervalos son parecidos: el IC t es razonable para estos datos.'}</div>`);}
+  if(topic==='dos'&&L1&&L2){const n1=L1.length,all=L1.concat(L2),d0=Math.abs(mean(L1)-mean(L2));let ge=0;for(let i=0;i<B;i++){for(let k=all.length-1;k>0;k--){const j=Math.floor(rnd()*(k+1));const t=all[k];all[k]=all[j];all[j]=t;}const d=Math.abs(mean(all.slice(0,n1))-mean(all.slice(n1)));if(d>=d0-1e-12)ge++;}
+    const pp=(ge+1)/(B+1),r=solve('dos',Object.assign({},v,{tail:'two'}));sec('Contraste con prueba de permutación',`<div class="iq-t">p (permutación, 5 000 mezclas) ≈ <b>${F(pp,4)}</b> frente a p (Welch) = <b>${F(r.p,4)}</b>. ${Math.abs(Math.log((pp+1e-9)/(r.p+1e-9)))>Math.log(2.5)?'Difieren bastante: los datos no parecen cumplir la normalidad que supone la prueba t.':'Coinciden en orden de magnitud: la conclusión es sólida.'}</div>`);}
+  if(topic==='par'&&L1&&L2&&L1.length===L2.length){const d=L1.map((x,i)=>x-L2[i]),n=d.length,d0=Math.abs(mean(d));let ge=0;for(let i=0;i<B;i++){let t=0;for(let j=0;j<n;j++)t+=rnd()<.5?d[j]:-d[j];if(Math.abs(t/n)>=d0-1e-12)ge++;}
+    const pp=(ge+1)/(B+1),r=solve('par',Object.assign({},v,{tail:'two'}));sec('Contraste con prueba de permutación (signos)',`<div class="iq-t">p (permutación) ≈ <b>${F(pp,4)}</b> frente a p (t pareada) = <b>${F(r.p,4)}</b>.</div>`);}
+  /* 3. sensibilidad en tamaño de muestra */
+  if(topic==='n_med'&&v.sigma>0&&v.E>0){const f=[0.5,0.75,1,1.5,2],cs=[90,95,99];sec('Sensibilidad: n según el margen de error y la confianza',tbl(['E'].concat(cs.map(c=>c+' %')),f.map(k=>[F(v.E*k,3)+(k===1?' ◀':'')].concat(cs.map(c=>Math.ceil((zc(c)*v.sigma/(v.E*k))**2))))) +'<div class="iq-t">Reducir E a la mitad cuadruplica n.</div>');}
+  if(topic==='n_prop'&&v.E>0){const p=isFinite(v.p)?v.p:0.5,f=[0.5,0.75,1,1.5,2],cs=[90,95,99];sec('Sensibilidad: n según el margen de error y la confianza',tbl(['E'].concat(cs.map(c=>c+' %')),f.map(k=>[F(v.E*k,4)+(k===1?' ◀':'')].concat(cs.map(c=>Math.ceil(zc(c)**2*p*(1-p)/((v.E*k)**2)))))));}
+  /* 4. sensibilidad del IC al nivel */
+  if(topic==='ic_p'&&v.n>=1&&v.x>=0&&v.x<=v.n){sec('Sensibilidad al nivel de confianza (Wilson)',tbl(['Confianza','Inferior','Superior','Ancho'],[80,90,95,99].map(c=>{const w=wilI(v.x,v.n,zc(c));return[c+' %',F(w[0]),F(w[1]),F(w[1]-w[0])];})));}
+  return out.join('');
+}
+window.ICAI={boost,reading,fixOcr,fuzzy,prep,extractLists,extract,classify,fill,solve,analyze,TOP,FIELDS,FEAT,SOLVE,parseNums,parseMat,OPENTAB,simpson};
+})();
+
+</script>
+<script>
+/* ===== MODE INTELLIGENT v2 · interfaz ===== */
+(function(){
+'use strict';
+const $=id=>document.getElementById(id),A=window.ICAI,F=(v,d)=>fmt(v,d);
+const st=document.createElement('style');st.textContent=`
+.ai-sw{margin-top:8px;display:inline-flex;align-items:center;gap:10px;background:#0b1220;border:1px solid #2c3a4d;color:#9fb3c8;font:700 12px/1 var(--font-mono);letter-spacing:.14em;padding:7px 12px 7px 8px;border-radius:99px;cursor:pointer}
+.ai-sw i{width:34px;height:18px;border-radius:99px;background:#243247;position:relative;transition:.25s}
+.ai-sw i:after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#7b8ea6;transition:.25s}
+.ai-sw.on{color:#5ff3ff;border-color:#2fd3e6;box-shadow:0 0 14px #2fd3e655}.ai-sw.on i{background:#0e6b78}.ai-sw.on i:after{left:18px;background:#5ff3ff;box-shadow:0 0 8px #5ff3ff}
+.iq-ov{position:fixed;inset:0;z-index:9999;display:none;overflow:auto;color:#d7e6f5;font-family:var(--font-sans);background:linear-gradient(rgba(95,243,255,.04) 1px,transparent 1px) 0 0/100% 34px,linear-gradient(90deg,rgba(95,243,255,.04) 1px,transparent 1px) 0 0/34px 100%,radial-gradient(900px 500px at 70% -10%,#12344a,#070b12 70%)}
+.iq-in{max-width:1000px;margin:0 auto;padding:20px 18px 70px}.iq-hd{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:6px}
+.iq-hd h2{margin:0;font:800 26px var(--font-mono);letter-spacing:.2em;color:#5ff3ff;text-shadow:0 0 18px #2fd3e6aa}.iq-hd h2 small{font-size:11px;letter-spacing:.1em;color:#ffb347;border:1px solid #ffb34788;border-radius:99px;padding:2px 8px;margin-left:8px;vertical-align:middle}
+.iq-sub{color:#8fa6bd;font-size:13px;margin-bottom:16px;line-height:1.5}
+.iq-card{background:#0d1626cc;border:1px solid #23405a;border-radius:12px;padding:14px;margin-bottom:14px;backdrop-filter:blur(4px)}
+.iq-card h3{margin:0 0 10px;font:700 12px var(--font-mono);letter-spacing:.16em;color:#7fe9f5;text-transform:uppercase}
+.iq-ov textarea{width:100%;min-height:90px;background:#060b14;color:#e6f3ff;border:1px solid #2a4b66;border-radius:8px;padding:10px;font:13px var(--font-mono);resize:vertical}
+.iq-ov input[type=number],.iq-ov input[type=text],.iq-ov input[type=password],.iq-ov select{width:100%;background:#060b14;color:#e6f3ff;border:1px solid #2a4b66;border-radius:6px;padding:7px;font:13px var(--font-mono)}
+.iq-b{background:#10303c;color:#bff8ff;border:1px solid #2fd3e6;border-radius:8px;padding:9px 14px;font:700 12px var(--font-mono);letter-spacing:.06em;cursor:pointer}.iq-b:hover{background:#17495a}.iq-b.p{background:#2fd3e6;color:#04202a}.iq-b.o{border-color:#ffb347;color:#ffd9a8;background:#2a1a0c}
+.iq-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.iq-st{color:#8fa6bd;font:12px var(--font-mono);min-height:16px}
+.iq-pb{display:grid;grid-template-columns:260px 1fr 46px;gap:8px;align-items:center;font-size:12px;margin:4px 0}.iq-pb div.b{height:9px;background:#122236;border-radius:9px;overflow:hidden}.iq-pb div.b i{display:block;height:100%;background:linear-gradient(90deg,#1a8fa0,#5ff3ff)}
+.iq-fl{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.iq-fl label,.iq-lb{font:11px var(--font-mono);color:#8fa6bd;display:block;margin-bottom:3px}.iq-fl .w{grid-column:1/-1}
+.iq-sol ol{margin:0 0 10px 18px;padding:0;line-height:1.75;font:13px var(--font-mono)}.iq-sol ol li{margin-bottom:3px}
+.iq-ans{background:#0e3a46;border:1px solid #2fd3e6;border-radius:8px;padding:11px;font:700 15px var(--font-mono);color:#eaffff}.iq-t{font-size:12.5px;color:#9fb3c8;margin-top:8px;line-height:1.55}
+.iq-warn{border-left:3px solid #ff7b7b;background:#2a1418;padding:9px 12px;border-radius:0 6px 6px 0;font-size:13px;margin:8px 0}.iq-info{border-left:3px solid #ffb347;background:#2a1f0c;padding:9px 12px;border-radius:0 6px 6px 0;font-size:13px;margin:8px 0}
+.iq-ck{margin-top:12px;border-top:1px dashed #23405a;padding-top:8px;font:12px/1.6 var(--font-mono)}.iq-ck b.g{color:#8fe3a0}.iq-ck b.r{color:#ff8a8a}.iq-ck div{padding:1px 0;color:#a9c2d6}
+.iq-ch{display:inline-block;background:#10243a;border:1px solid #2a4b66;color:#cfe9ff;border-radius:99px;padding:3px 10px;margin:3px 4px 0 0;font:11px var(--font-mono)}.iq-ch.d{opacity:.6;border-style:dashed}
+.iq-ov table.iq-tb{width:100%;border-collapse:collapse;font:11.5px var(--font-mono);margin:6px 0}.iq-tb th,.iq-tb td{padding:4px 7px;border:1px solid #1c3347;text-align:center}.iq-tb th{background:#10243a;color:#9fe7f1}
+.iq-ov img.pv{max-width:100%;max-height:360px;object-fit:contain;border-radius:8px;margin-top:8px;display:none}.iq-bsec{border:1px solid #3a2f14;background:#1a1409;border-radius:8px;padding:10px 12px;margin:10px 0}.iq-bsec>b{display:block;font:700 12px var(--font-mono);letter-spacing:.08em;color:#ffcf8a;margin-bottom:6px}.iq-rd{border-left:3px solid #5ff3ff;background:#0b2230;padding:9px 12px;border-radius:0 6px 6px 0;font-size:13px;line-height:1.6;margin:8px 0}.iq-rd b{color:#bff8ff}.iq-ov details summary{cursor:pointer}
+.iq-scan{height:6px;background:#12293a;border-radius:6px;overflow:hidden;margin:10px 0}.iq-scan i{display:block;height:100%;width:40%;background:linear-gradient(90deg,transparent,#5ff3ff,transparent);animation:iqs .7s infinite linear}@keyframes iqs{to{transform:translateX(260%)}}
+@media(max-width:640px){.iq-pb{grid-template-columns:130px 1fr 40px}.iq-hd h2{font-size:19px}}`;document.head.appendChild(st);
+
+const ov=document.createElement('div');ov.className='iq-ov';
+ov.innerHTML=`<div class="iq-in">
+<div class="iq-hd"><h2>MODE INTELLIGENT<small>v2</small></h2><button class="iq-b" id="iq_back">← Volver al instrumento</button></div>
+<div class="iq-sub">Pega o fotografía un problema. El motor lee el enunciado, decide el tema con una matriz de pesos más las pruebas de completitud de datos, extrae las cantidades, te deja corregirlas y resuelve con verificación numérica independiente. Todo se calcula en tu dispositivo, sin enviar nada a internet. <b>BOOST PLUS</b> añade lecturas alternativas, diagnóstico de supuestos y contrastes independientes.</div>
+<div class="iq-card"><h3>1 · Entrada</h3><textarea id="iq_txt" placeholder="Ej.: Una muestra aleatoria de 25 estudiantes tiene media 72 y desviación estándar 8. Halle el IC del 95 % para la media."></textarea>
+<div class="iq-row"><button class="iq-b" id="iq_cam">📷 Cámara del teléfono</button><button class="iq-b" id="iq_up">🖼 Subir imagen</button><button class="iq-b" id="iq_ex">Ejemplo</button><button class="iq-b p" id="iq_go">ANALIZAR</button></div>
+<input type="file" id="iq_file" accept="image/*" style="display:none"><input type="file" id="iq_camf" accept="image/*" capture="environment" style="display:none"><img class="pv" id="iq_pv" alt="">
+<div class="iq-st" id="iq_stt"></div>
+</div>
+<div id="iq_out"></div></div>`;document.body.appendChild(ov);
+
+const sw=document.createElement('button');sw.className='ai-sw';sw.innerHTML='<i></i>MODE INTELLIGENT';document.querySelector('.nameplate>div').appendChild(sw);
+const tog=on=>{ov.style.display=on?'block':'none';sw.classList.toggle('on',on);};
+sw.onclick=()=>tog(ov.style.display!=='block');$('iq_back').onclick=()=>tog(false);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ov.style.display==='block')tog(false);});
+const stt=m=>$('iq_stt').textContent=m;
+/* ---------- imagen / OCR / cámara ---------- */
+let ST={e:null,c:null,topic:null,img:null,vals:null,inf:[],boost:true};
+const EXS=['Una muestra aleatoria de 25 estudiantes tiene una media de 72 y una desviación estándar de 8. Construya un intervalo de confianza del 95 % para la media poblacional.','En una encuesta, 184 de 250 personas prefieren el producto. Halle el intervalo de confianza del 90 % para la proporción.','¿Qué tamaño de muestra se necesita para estimar una media con un margen de error de 2, si σ = 10 y la confianza es del 95 %?','Un fabricante afirma que la vida media de sus baterías es de 50 horas. Una muestra de 16 tiene media 47 y s = 6. Con un nivel de significancia de 0.05, ¿hay evidencia de que es menor?','Grupo 1: 88, 92, 79, 85, 90, 87\nGrupo 2: 80, 83, 78, 82, 81, 85\nCompare los dos grupos con un IC del 95 %.','X: 1, 2, 3, 4, 5, 6\nY: 2.1, 3.9, 6.2, 7.8, 10.1, 12.2\nHalle la recta de regresión y la correlación.','Hombres: 20, 30, 10\nMujeres: 25, 15, 20\nPruebe con α = 0.05 si el género es independiente de la preferencia.','Los pesos de los paquetes se distribuyen normalmente con media 500 y desviación 20. ¿Cuál es la probabilidad de que un paquete pese entre 480 y 530?'];
+let ei=0;$('iq_ex').onclick=()=>{$('iq_txt').value=EXS[ei++%EXS.length];ST.img=null;$('iq_pv').style.display='none';go();};
+function lT(){return window.Tesseract?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js';s.onload=ok;s.onerror=no;document.head.appendChild(s);});}
+async function prepImg(f){let bmp;try{bmp=await createImageBitmap(f,{imageOrientation:'from-image'});}catch(_){return f;}
+  const M=2400,k=Math.min(2,M/Math.max(bmp.width,bmp.height)),w=Math.round(bmp.width*k),h=Math.round(bmp.height*k),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.imageSmoothingQuality='high';x.drawImage(bmp,0,0,w,h);
+  const d=x.getImageData(0,0,w,h),a=d.data,hist=new Uint32Array(256);for(let i=0;i<a.length;i+=4){const g=(a[i]*.299+a[i+1]*.587+a[i+2]*.114)|0;a[i]=g;hist[g]++;}
+  const tot=w*h;let lo=0,hi=255,s=0;while(lo<254&&(s+=hist[lo])<tot*.01)lo++;s=0;while(hi>1&&(s+=hist[hi])<tot*.01)hi--;const r=Math.max(40,hi-lo);
+  for(let i=0;i<a.length;i+=4){let g=Math.max(0,Math.min(255,(a[i]-lo)*255/r));a[i]=a[i+1]=a[i+2]=g;}x.putImageData(d,0,0);return c;}
+async function ocr(file){stt('Cargando el lector de texto…');try{await lT();}catch(e){stt('No se pudo cargar el lector (hace falta internet la primera vez). Escribe o pega el texto a mano.');return;}
+  try{stt('Mejorando la imagen…');const src=await prepImg(file);const r=await Tesseract.recognize(src,'spa+eng',{logger:m=>{if(m.status==='recognizing text')stt('Leyendo la imagen… '+Math.round(m.progress*100)+' %');}});
+    $('iq_txt').value=A.fixOcr(r.data.text);stt('Texto leído (confianza del lector '+Math.round(r.data.confidence)+' %). Revísalo: si algo salió mal, corrígelo y pulsa ANALIZAR.');go();}catch(e){stt('No se pudo leer la imagen. Prueba con más luz, la hoja recta y bien enfocada.');}}
+function setImg(f){const pv=$('iq_pv');try{pv.src=URL.createObjectURL(f);pv.style.display='block';}catch(_){}ocr(f);}
+$('iq_up').onclick=()=>$('iq_file').click();
+$('iq_file').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)setImg(f);};
+$('iq_camf').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)setImg(f);};
+$('iq_cam').onclick=()=>$('iq_camf').click();
+
+/* ---------- flujo principal ---------- */
+function go(){
+  const t=$('iq_txt').value.trim();
+  if(!t){stt('Escribe o fotografía un problema primero.');return;}
+  ST.e=A.extract(t);ST.c=A.classify(ST.e);const r=A.analyze(t);ST.inf=r.inferred;render(ST.c.top,r.v);
+}
+const chip=(txt,dim)=>`<span class="iq-ch${dim?' d':''}">${txt}</span>`;
+function entChips(e){const o=[];
+  e.ns.forEach(v=>o.push(chip('n = '+v)));e.xbs.forEach(v=>o.push(chip('x̄ = '+v)));e.ss.forEach(v=>o.push(chip('s = '+F(v,4))));e.sigmas.forEach(v=>o.push(chip('σ = '+F(v,4))));
+  e.xn.forEach(q=>o.push(chip(q[0]+' de '+q[1])));if(e.mu0!==undefined)o.push(chip('μ₀ = '+e.mu0));if(e.p0!==undefined)o.push(chip('p₀ = '+e.p0));if(e.E!==undefined)o.push(chip('E = '+e.E));
+  o.push(chip('confianza = '+F(e.conf,2)+' %'+(e.confSrc==='defecto'?' (por defecto)':''),e.confSrc==='defecto'));o.push(chip('α = '+F(e.alpha,4)));o.push(chip('cola: '+({two:'dos (≠)',right:'derecha (>)',left:'izquierda (<)'}[e.tail])+(e.tailExplicit?'':' (por defecto)'),!e.tailExplicit));
+  e.lists.forEach((l,i)=>o.push(chip('lista '+(i+1)+(l.label?' «'+l.label.slice(0,18)+'»':'')+': '+l.vals.length+' datos')));return o.join('');}
+function render(topic,pre){
+  ST.topic=topic;const e=ST.e,c=ST.c,idx=A.TOP.findIndex(t=>t[0]===topic);
+  let vals=pre||A.fill(topic,e);if(!pre){ST.inf=[];}
+  ST.vals=vals;
+  const top3=c.ord.slice(0,3),unsure=c.pr[c.ord[0]]<0.55,rd=A.reading(topic,vals,e,ST.inf),llmNote=`<div class="iq-rd"><b>Entendí:</b> ${rd.name}<br>${rd.parts.length?rd.parts.join(' · '):'(no encontré datos numéricos)'}</div>`;
+  $('iq_out').innerHTML=`<div class="iq-card"><h3>2 · Tema identificado</h3>${llmNote}${(()=>{const z=c.ord[0],y=c.ord[1];return c.pr[z]>=0.55&&c.pr[z]<0.8?'<div class="iq-info">Confianza media ('+(c.pr[z]*100).toFixed(0)+' %). La segunda opción es <b>'+A.TOP[y][1]+'</b> ('+(c.pr[y]*100).toFixed(0)+' %): si no es lo que querías, cámbiala abajo.</div>':'';})()}
+   ${unsure?'<div class="iq-warn">No estoy seguro del tema (la mejor opción tiene menos de 55 %). Elige el correcto:<div class="iq-row">'+top3.map(i=>`<button class="iq-b o" data-t="${A.TOP[i][0]}">${A.TOP[i][1]}</button>`).join('')+'</div></div>':''}
+   ${c.ord.slice(0,5).map(i=>`<div class="iq-pb"><span>${A.TOP[i][1]}</span><div class="b"><i style="width:${(c.pr[i]*100).toFixed(1)}%"></i></div><b>${(c.pr[i]*100).toFixed(0)}%</b></div>`).join('')}
+   <div class="iq-t">Por qué: ${c.why(idx).length?c.why(idx).join(' · '):'el tema viene de tu elección'}</div>
+   <div style="margin-top:8px">${entChips(e)}</div>
+   <div style="margin-top:10px"><label class="iq-lb">Tema a resolver (${A.TOP.length} disponibles; puedes cambiarlo)</label><select id="iq_tp">${A.TOP.map(t=>`<option value="${t[0]}"${t[0]===topic?' selected':''}>${t[1]}</option>`).join('')}</select></div></div>
+   <div class="iq-card"><h3>3 · Datos (corrige si algo salió mal; se recalcula solo)</h3><div class="iq-fl" id="iq_form"></div><div class="iq-row" id="iq_acts"></div></div>
+   <div class="iq-card"><h3>4 · Solución</h3><div id="iq_sol"></div></div><div class="iq-card"><h3>⚡ BOOST PLUS · análisis ampliado</h3><div id="iq_bst"></div></div>`;
+  $('iq_tp').onchange=()=>render($('iq_tp').value);
+  document.querySelectorAll('#iq_out [data-t]').forEach(b=>b.onclick=()=>render(b.dataset.t));
+  buildForm(topic,vals);solveNow();
+}
+function buildForm(topic,vals){
+  const box=$('iq_form');box.innerHTML='';
+  A.FIELDS[topic].forEach(f=>{const d=document.createElement('div'),v=vals[f.k];if(f.t==='list'||f.t==='area')d.className='w';let h=`<label>${f.l}</label>`;
+    if(f.t==='num')h+=`<input type="number" step="any" id="iqf_${f.k}" value="${v===''||v===undefined||v===null?'':v}">`;
+    else if(f.t==='list')h+=`<textarea id="iqf_${f.k}" style="min-height:48px">${Array.isArray(v)?v.join(', '):''}</textarea>`;
+    else if(f.t==='area')h+=`<textarea id="iqf_${f.k}" style="min-height:70px">${v||''}</textarea>`;
+    else h+=`<select id="iqf_${f.k}">${f.o.map(o=>`<option value="${o[0]}"${o[0]===v?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+    d.innerHTML=h;box.appendChild(d);d.querySelector('input,textarea,select').addEventListener('input',()=>{clearTimeout(box._t);box._t=setTimeout(solveNow,120);});});
+  const acts=$('iq_acts');acts.innerHTML='<button class="iq-b p" id="iq_rs">RESOLVER</button><button class="iq-b" id="iq_cp">Copiar solución</button>'+'<button class="iq-b o" id="iq_bt">⚡ BOOST PLUS: '+(ST.boost?'activado':'apagado')+'</button>'+(A.OPENTAB[topic]?'<button class="iq-b o" id="iq_ot">Abrir en su pestaña del instrumento</button>':'');
+  $('iq_rs').onclick=solveNow;$('iq_bt').onclick=()=>{ST.boost=!ST.boost;$('iq_bt').textContent='⚡ BOOST PLUS: '+(ST.boost?'activado':'apagado');solveNow();};$('iq_cp').onclick=copySol;if($('iq_ot'))$('iq_ot').onclick=()=>openTab(topic);
+}
+function readVals(topic){const v={};A.FIELDS[topic].forEach(f=>{const el=$('iqf_'+f.k);if(!el)return;
+  if(f.t==='num'){const x=parseFloat(String(el.value).replace(',','.'));v[f.k]=isNaN(x)?NaN:x;}
+  else if(f.t==='list'){v[f.k]=A.parseNums(el.value)||el.value.split(/[\s,;]+/).map(Number).filter(q=>!isNaN(q)&&isFinite(q));}
+  else v[f.k]=el.value;});return v;}
+function solveNow(){
+  const topic=ST.topic,v=readVals(topic),r=A.solve(topic,v),box=$('iq_sol'),bb=$('iq_bst');
+  if(bb){let h='';if(!r.err&&ST.boost){try{h=A.boost(topic,v);}catch(e){h='';}}bb.innerHTML=ST.boost?(h||'<div class="iq-t">Para este tema y estos datos no hay análisis ampliado adicional.</div>'):'<div class="iq-t">Apagado. Actívalo con el botón de arriba.</div>';}
+  if(r.err){box.innerHTML=`<div class="iq-warn">${r.err}</div><div class="iq-t">Completa o corrige los datos de arriba.</div>`;return;}
+  const ck=r.checks||[],okn=ck.filter(q=>q.ok).length,bad=ck.length-okn;
+  box.innerHTML=`<div class="iq-sol"><ol>${r.steps.map(s=>`<li>${s}</li>`).join('')}</ol><div class="iq-ans">${r.ans}</div>${r.interp?`<div class="iq-t">${r.interp}</div>`:''}${r.extra||''}${(r.warns||[]).map(w=>`<div class="iq-info">⚠ ${w}</div>`).join('')}
+   ${ck.length?`<div class="iq-ck"><b class="${bad?'r':'g'}">${bad?'✖':'✔'} Verificación independiente: ${okn} de ${ck.length} comprobaciones pasaron</b>${ck.map(q=>`<div>${q.ok?'<b class="g">✔</b>':'<b class="r">✖</b>'} ${q.t}</div>`).join('')}</div>`:''}</div>`;
+}
+function copySol(){const el=$('iq_sol');if(!el)return;const tx=el.innerText.trim();const b=$('iq_cp');navigator.clipboard.writeText(tx).then(()=>{const o=b.textContent;b.textContent='Copiado ✓';setTimeout(()=>b.textContent=o,1400);}).catch(()=>{});}
+
+/* ---------- abrir en la pestaña correspondiente ---------- */
+function setConf(c){c=Math.min(99.9,Math.max(80,c));$('confSlider').value=c;$('confReadout').textContent=c.toFixed(1)+' %';$('confSlider').dispatchEvent(new Event('input'));}
+function openTab(topic){
+  const v=readVals(topic),set=(id,val,ev)=>{const x=$(id);if(!x)return;x.value=val;x.dispatchEvent(new Event(ev||'input'));},go=t=>{tog(false);const b=document.querySelector(`#tabbar button[data-tab="${t}"]`);if(b)b.click();};
+  const conf=v.conf!==undefined?v.conf:(v.alpha!==undefined?(1-v.alpha)*100:95);if(isFinite(conf))setConf(conf);
+  if(topic==='ic_t'){if(v.L1&&v.L1.length>=2){set('a_data',v.L1.join(', '));set('a_n','');set('a_m','');set('a_s','');}else{set('a_data','');set('a_n',v.n);set('a_m',v.xb);set('a_s',v.s);}go('t80');}
+  else if(topic==='dos'||topic==='par'){set('b_d1',(v.L1||[]).join(', '));set('b_d2',(v.L2||[]).join(', '));set('b_m',topic==='par'?'paired':'welch','change');go('two');}
+  else if(topic==='reg'){set('r_x',(v.L1||[]).join(', '));set('r_y',(v.L2||[]).join(', '));if(isFinite(v.x0))set('r_x0',v.x0);go('reg');}
+  else if(topic==='chi_ind'){set('hypType','chiind','change');set('indTable',v.M||'');go('hyp');}
+  else if(topic==='chi_gof'){set('hypType','chigof','change');set('gofObs',(v.O||[]).join(', '));set('gofExp',(v.Ex||[]).join(', '));go('hyp');}
+  else if(topic==='anova'){set('hypType','anova','change');set('anovaData',v.G||'');go('hyp');}
+  else if(topic==='hip_t'){if(!(v.L1&&v.L1.length>=2)){stt('Esta pestaña necesita los datos en bruto (lista).');return;}set('hypType','t1','change');set('t1Data',v.L1.join(', '));set('t1Mu0',v.mu0);const tb=document.querySelector(`#tailSwitch button[data-tail="${v.tail}"]`);if(tb)tb.click();go('hyp');}
+  else if(topic==='tc'){set('c_df',v.df);if(isFinite(v.tobs))set('c_t',v.tobs);set('c_c',v.conf);go('tbl');}
+}
+$('iq_go').onclick=go;
+})();
+
+</script>
+<script>
+/* ===== MODO 3D (solo añadidos) ===== */
+(function(){
+const $=id=>document.getElementById(id),F=fmt;
+const tabbar=$('tabbar'),col=tabbar.parentNode,btn=document.createElement('button');btn.dataset.tab='d3';btn.textContent='Modo 3D';tabbar.appendChild(btn);
+const pan=document.createElement('div');pan.className='tabpanel';pan.id='panel-d3';pan.style.display='none';col.appendChild(pan);
+pan.innerHTML=`<div class="section-title xsec"><span class="dot"></span>Modo 3D · arrastra para girar, rueda o pellizco para acercar</div>
+<select class="xs" id="d_mode"><option value="a">Superficie A · densidad t de Student según los grados de libertad</option><option value="b">Superficie B · margen de error según n y nivel de confianza (80–95 %)</option></select>
+<label class="field-label" id="d_lab"></label><input type="range" id="d_sl" style="width:100%;margin-bottom:8px">
+<div id="d_box" style="height:430px;border-radius:10px;overflow:hidden;background:radial-gradient(#12344a,#060b14);position:relative;touch-action:none;cursor:grab"><div id="d_ax" style="position:absolute;left:10px;top:8px;z-index:2;font:11px var(--font-mono);color:#7fe9f5;line-height:1.6;pointer-events:none"></div></div>
+<div id="d_rd" class="xnote" style="margin-top:10px"></div><div class="actions"><button class="btn ghost" id="d_pause">Pausar giro</button><button class="btn ghost" id="d_reset">Reiniciar vista</button></div>`;
+
+/* matemática */
+function lg(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,t=x+5.5;t-=(x+.5)*Math.log(t);let s=1.000000000190015;for(const q of c)s+=q/++y;return -t+Math.log(2.5066282746310005*s/x);}
+const tpdf=(x,v)=>Math.exp(lg((v+1)/2)-lg(v/2))/Math.sqrt(v*Math.PI)*Math.pow(1+x*x/v,-(v+1)/2);
+const tcr=(l,df)=>tInvCDF(1-(1-l/100)/2,df),conf=()=>parseFloat($('confSlider').value);
+const LV=[80,85,90,95],LC=[0x7fe9f5,0x8cf59a,0xffd24a,0xff8a3d];
+
+/* escena */
+let ready=false,scene,cam,ren,grp,mesh,wire,lns=[],auto=true,drag=null,box=$('d_box');
+const THREEURL='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+const load=()=>window.THREE?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src=THREEURL;s.onload=ok;s.onerror=no;document.head.appendChild(s);});
+const err=m=>{box.innerHTML=`<div style="padding:24px;color:#ffd0d0;font:13px var(--font-mono)">${m}</div>`;};
+const isA=()=>$('d_mode').value==='a';
+const mapA=df=>-5+10*(df-1)/29,mapN=n=>-5+10*(n-5)/95,mapC=c=>-5+10*(c-80)/19;
+const Y=(h,A)=>A?h*9:h*2.6;
+function ramp(h){const c=new THREE.Color();c.setHSL(.62-.52*Math.min(1,Math.max(0,h)),.9,.4+.12*Math.min(1,h));return c;}
+
+let stl=[];
+function clearAll(){[mesh,wire,...stl,...lns].forEach(o=>{if(o){grp.remove(o);if(o.geometry&&o!==wire)o.geometry.dispose();}});stl=[];lns=[];}
+const tap=(z,v)=>z+(z**3+z)/(4*v)+(5*z**5+16*z**3+3*z)/(96*v*v)+(3*z**7+19*z**5+17*z**3-15*z)/(384*v**3);
+function surface(){
+  const A=isA(),NX=A?60:48,NZ=A?29:24,P=[],Cc=[],I=[],zr=[...Array(NZ+1)].map((_,r)=>normalInvCDF(1-(1-(80+19*r/NZ)/100)/2));
+  for(let r=0;r<=NZ;r++)for(let c=0;c<=NX;c++){const u=c/NX,w=r/NZ;let h,hh;
+    if(A){h=tpdf(-5+10*u,1+29*w);hh=h/.4;}else{const n=5+95*u;h=tap(zr[r],n-1)/Math.sqrt(n);hh=h/2.1;}
+    P.push(-5+10*u,Y(h,A),-5+10*w);const q=ramp(hh);Cc.push(q.r,q.g,q.b);}
+  for(let r=0;r<NZ;r++)for(let c=0;c<NX;c++){const a=r*(NX+1)+c,b=a+1,d=a+NX+1,e=d+1;I.push(a,d,b,b,d,e);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setAttribute('color',new THREE.Float32BufferAttribute(Cc,3));g.setIndex(I);g.computeVertexNormals();
+  mesh=new THREE.Mesh(g,new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:.55,metalness:.15}));
+  wire=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:0x5ff3ff,wireframe:true,transparent:true,opacity:.1}));grp.add(mesh,wire);
+}
+function line(pts,color,st){const g=new THREE.BufferGeometry().setFromPoints(pts.map(p=>new THREE.Vector3(...p))),l=new THREE.Line(g,new THREE.LineBasicMaterial({color}));grp.add(l);(st?stl:lns).push(l);}
+function statics(){stl.forEach(o=>{grp.remove(o);o.geometry.dispose();});stl=[];
+  if(isA()){const c=conf(),L=[],R=[];for(let d=1;d<=30;d+=.5){const t=tcr(c,d);L.push([-t,tpdf(t,d)*9+.05,mapA(d)]);R.push([t,tpdf(t,d)*9+.05,mapA(d)]);}line(L,0xffd24a,1);line(R,0xffd24a,1);}
+  else LV.forEach((l,i)=>{const pts=[];for(let k=5;k<=100;k+=3)pts.push([mapN(k),Y(tcr(l,k-1)/Math.sqrt(k),false)+.05,mapC(l)]);line(pts,LC[i],1);});}
+function marks(){
+  lns.forEach(o=>{grp.remove(o);o.geometry.dispose();});lns=[];const A=isA(),s=+$('d_sl').value,c=conf();let rd;
+  if(A){const df=s,pts=[];for(let i=0;i<=60;i++){const x=-5+i/6;pts.push([x,tpdf(x,df)*9+.04,mapA(df)]);}line(pts,0xff4d4d);
+    const t=tcr(c,df),z=normalInvCDF(1-(1-c/100)/2);
+    rd=`<b>Línea roja:</b> la campana t con df = ${df}. <b>Líneas amarillas:</b> el valor crítico ±t* para ${c.toFixed(1)} % de confianza a medida que cambian los grados de libertad. Con df = ${df}: <b>t* = ${F(t)}</b> frente a z* = ${F(z)} (diferencia ${F(t-z)}). Con pocos grados de libertad las colas son pesadas y t* es mayor; al crecer df la campana se aproxima a la normal.`;
+    $('d_ax').innerHTML='x: valor de t (−5 a 5)<br>profundidad: grados de libertad (1 a 30)<br>altura: densidad';$('d_lab').textContent='Grados de libertad resaltados: '+df;
+  }else{const n=s,cv=[];for(let cc=80;cc<=99;cc+=1)cv.push([mapN(n),Y(tcr(cc,n-1)/Math.sqrt(n),false)+.05,mapC(cc)]);line(cv,0xff4d4d);
+    rd=`<b>Líneas de colores:</b> el margen de error E (en unidades de s) para 80 %, 85 %, 90 % y 95 % a medida que crece n. <b>Línea roja:</b> n = ${n} variando la confianza. Con n = ${n}: `+LV.map(l=>`E(${l} %) = ${F(tcr(l,n-1)/Math.sqrt(n))}·s`).join(' · ')+`. Fíjate en que la superficie cae rápido al principio y luego se aplana: duplicar n no reduce E a la mitad, hace falta cuadruplicarlo.`;
+    $('d_ax').innerHTML='x: tamaño de muestra n (5 a 100)<br>profundidad: confianza (80 a 99 %)<br>altura: margen de error E/s';$('d_lab').textContent='Tamaño de muestra resaltado: n = '+n;}
+  $('d_rd').innerHTML=rd;
+}
+function setMode(){const A=isA(),sl=$('d_sl');sl.min=A?1:5;sl.max=A?30:100;sl.step=1;sl.value=A?5:20;if(ready){clearAll();surface();statics();marks();}else $('d_lab').textContent='Abre esta pestaña para cargar el motor 3D';}
+function resize(){const w=box.clientWidth||600;ren.setSize(w,430);cam.aspect=w/430;cam.updateProjectionMatrix();}
+function init(){
+  scene=new THREE.Scene();cam=new THREE.PerspectiveCamera(45,1,.1,100);
+  try{ren=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch(e){err('Tu navegador no permite gráficos 3D (WebGL).');return false;}
+  ren.setPixelRatio(Math.min(2,window.devicePixelRatio||1));box.appendChild(ren.domElement);
+  scene.add(new THREE.AmbientLight(0xffffff,.6));const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(5,10,7);scene.add(dl);
+  grp=new THREE.Group();scene.add(grp);grp.add(new THREE.GridHelper(10,10,0x2fd3e6,0x1c3347));resetView();
+  const el=ren.domElement;
+  el.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];auto=false;el.setPointerCapture(e.pointerId);box.style.cursor='grabbing';});
+  el.addEventListener('pointermove',e=>{if(!drag)return;grp.rotation.y+=(e.clientX-drag[0])*.008;grp.rotation.x=Math.max(-.2,Math.min(1.2,grp.rotation.x+(e.clientY-drag[1])*.008));drag=[e.clientX,e.clientY];});
+  el.addEventListener('pointerup',()=>{drag=null;box.style.cursor='grab';});
+  el.addEventListener('wheel',e=>{e.preventDefault();cam.position.multiplyScalar(e.deltaY>0?1.07:.93);const l=cam.position.length();if(l<7)cam.position.setLength(7);if(l>32)cam.position.setLength(32);},{passive:false});
+  ready=true;surface();statics();marks();resize();(function loop(){requestAnimationFrame(loop);if(!box.offsetParent)return;if(auto)grp.rotation.y+=.004;ren.render(scene,cam);})();return true;
+}
+function resetView(){cam.position.set(0,7,14);cam.lookAt(0,1,0);grp.rotation.set(.35,-.5,0);auto=true;}
+async function open(){if(!ready){box.insertAdjacentHTML('beforeend','<div id="d_ld" style="position:absolute;inset:0;display:grid;place-items:center;color:#7fe9f5;font:13px var(--font-mono)">Cargando motor 3D…</div>');
+    try{await load();}catch(e){err('No se pudo cargar el motor 3D (se necesita internet la primera vez). Revisa la conexión y vuelve a abrir esta pestaña.');return;}
+    const ld=$('d_ld');if(ld)ld.remove();if(!init())return;}resize();}
+$('d_mode').addEventListener('change',setMode);$('d_sl').addEventListener('input',()=>{if(ready)marks();});
+$('d_pause').onclick=()=>{auto=!auto;$('d_pause').textContent=auto?'Pausar giro':'Reanudar giro';};
+$('d_reset').onclick=()=>{if(ready){resetView();$('d_pause').textContent='Pausar giro';}};
+tabbar.addEventListener('click',e=>{const b=e.target.closest('button');if(b&&b.dataset.tab==='d3')open();});
+window.addEventListener('resize',()=>{if(ready)resize();});
+$('confSlider').addEventListener('input',()=>{if(ready&&isA()&&box.offsetParent){statics();marks();}});
+setMode();
+})();
+</script>
+
+
+
+
+
+
+
+
+
+</body>
+</html>
